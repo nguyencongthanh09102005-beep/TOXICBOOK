@@ -32,7 +32,7 @@ Lấy Gemini API key ở [Google AI Studio](https://aistudio.google.com/apikey).
 
 ```dotenv
 GEMINI_API_KEY=day_la_key_thuc_cua_ban
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.8-flash
 TOXICBOOK_OWNER_PASSWORD=mat_khau_manh_cua_rieng_ban
 ```
 
@@ -61,7 +61,7 @@ Mở **http://localhost:5173** rồi đăng nhập bằng `TOXICBOOK_OWNER_PASSW
 2. **Vercel:** import repository, Framework Preset **Vite**, build `npm run build`, output `dist`. Thêm environment variables cho Production (và Preview nếu dùng):
 
    - `GEMINI_API_KEY` — Gemini API key từ Google AI Studio.
-   - `GEMINI_MODEL` — ví dụ `gemini-2.5-flash` (model cần có trên tài khoản).
+   - `GEMINI_MODEL` — ví dụ `gemini-3.8-flash` (model cần có trên tài khoản).
    - `TOXICBOOK_OWNER_PASSWORD` — mật khẩu mạnh riêng cho chủ web; bắt buộc khi deploy.
    - `TOXICBOOK_SESSION_SECRET` — chuỗi bí mật ngẫu nhiên dài, dùng ký cookie đăng nhập.
    - `SUPABASE_URL` — Project URL.

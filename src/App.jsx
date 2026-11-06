@@ -183,6 +183,7 @@ export default function App() {
   const [aiJobs, setAiJobs] = useState({});
   const initialAttempted = useRef(new Set());
   const seedRunning = useRef(new Set());
+  const recoveryChecked = useRef(false);
   const [likedComments, setLikedComments] = useState([]);
   const [toast, setToast] = useState('');
   const [live, setLive] = useState(false);
@@ -351,7 +352,8 @@ export default function App() {
   // a version that fixed Gemini integration. Only one recovery attempt per page
   // load prevents background quota storms and retries are user-initiated after errors.
   useEffect(() => {
-    if (startup !== 'ready' || !live || !hydrated.current) return;
+    if (startup !== 'ready' || !live || !hydrated.current || recoveryChecked.current) return;
+    recoveryChecked.current = true;
     const newestEmpty = [...dataRef.current.posts].sort(dateDesc).find(post =>
       post.comments.every(c => !c.aiId) && !initialAttempted.current.has(post.id));
     if (!newestEmpty) return;

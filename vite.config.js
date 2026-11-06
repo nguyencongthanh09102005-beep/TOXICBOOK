@@ -1,17 +1,24 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
-import commentApi from './api/comment.js';
+import commentHandler from './api/comment.js';
+import sessionHandler from './api/session.js';
+import stateHandler from './api/state.js';
 
-// Vite dev and Vercel production use exactly the same server-side AI endpoint.
-export default defineConfig({
-  plugins: [react(), {
-    name: 'toxicbook-local-api',
-    configureServer(server) {
-      server.middlewares.use('/api/comment', (req, res, next) => {
-        if (req.method === 'POST' || req.method === 'GET') {
-          Promise.resolve(commentApi(req, res)).catch(next);
-        } else next();
-      });
-    },
-  }],
+// For Vite dev, .env.local is not automatically injected into process.env.
+// Only server-side handlers read these secrets; nothing is bundled into React.
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  for (const key of ['GEMINI_API_KEY','GEMINI_MODEL','TOXICBOOK_OWNER_PASSWORD','TOXICBOOK_SESSION_SECRET','SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY']) {
+    if (!process.env[key] && env[key]) process.env[key] = env[key];
+  }
+  return {
+    plugins: [react(), {
+      name: 'toxicbook-local-server',
+      configureServer(server) {
+        for (const [path, handler] of [['/api/comment',commentHandler],['/api/session',sessionHandler],['/api/state',stateHandler]]) {
+          server.middlewares.use(path, (req,res,next) => Promise.resolve(handler(req,res)).catch(next));
+        }
+      },
+    }],
+  };
 });

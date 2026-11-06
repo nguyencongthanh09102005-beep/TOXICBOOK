@@ -78,5 +78,5 @@ export default async function handler(req,res){
     result=result.replace(/^["“]|["”]$/g,'').slice(0,380);
     if(!result)return sendJSON(res,502,{error:'Gemini không tạo được bình luận, hãy thử lại.',code:'EMPTY_RESPONSE'});
     return sendJSON(res,200,{text:result,source:'gemini',model});
-  }catch(err){console.error('ToxicBook API:',err.message);return sendJSON(res,err.status||500,{error:err.name==='AbortError'?'Gemini phản hồi quá 70 giây. Kiểm tra kết nối mạng hoặc thử lại với bài đăng không có ảnh.':err.status===413?err.message:'Không tạo được bình luận AI.',code:'REQUEST_FAILED'});}
+  }catch(err){console.error('ToxicBook API:',err.message);return sendJSON(res,err.status||500,{error:err.name==='AbortError'?'Kết nối Gemini đã bị hủy. Kiểm tra mạng và thử lại.':err.status===413?err.message:'Không tạo được bình luận AI.',code:'REQUEST_FAILED'});}
 }

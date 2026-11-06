@@ -112,3 +112,13 @@ Gemini 503 là lỗi dịch vụ phía Google, không phải do giao diện Toxi
 Bản cũ dùng chung một `AbortController` cho toàn bộ chuỗi retry, nên model chính có thể làm hết thời gian khiến model dự phòng không kịp gọi. Bản mới dành thời gian chờ riêng cho lần thử model chính (23 giây), model Flash-Lite dự phòng (27 giây) và một lượt thử lại Flash-Lite (16 giây). Sau 503 của model chính sẽ chuyển ngay sang model dự phòng. Mỗi lượt có thể phát sinh yêu cầu Gemini tính quota/chi phí; không bảo đảm Google hết quá tải.
 
 Nếu đăng bài đã có 2/3 bình luận rồi bị lỗi, nhấn **Tạo tiếp bình luận** (hoặc mở lại web sau khi cập nhật) để tạo **nhân vật thứ ba**, không xóa/viết lại 2 bình luận cũ. Khi gặp timeout kéo dài hoặc quá tải dù đã thử dự phòng, ToxicBook không tự spam thêm hàng loạt nhân vật; sẽ hiện lỗi để thử lại sau.
+
+## Hàng trăm bình luận AI thật trên mỗi bài (tự động theo đợt)
+
+- Vào **Cài đặt → Mục tiêu bình luận AI mỗi bài** chọn **25, 50, 100 hoặc 200** (mặc định 100). Giới hạn này dành cho **bình luận AI tự sinh**; người dùng vẫn được trả lời và cãi nhau theo các nhánh như bình thường.
+- Sau đợt bình luận đầu, khi bạn **đang mở tab ToxicBook**, mỗi **4 phút** app sẽ chọn một trong tối đa 3 bài gần nhất chưa đủ mục tiêu, rồi yêu cầu Gemini sinh **tối đa 10 bình luận từ một lời gọi**. Các bình luận được lưu cùng lúc để không gây nhiều lần ghi dữ liệu. Không có tác vụ chạy ngầm sau khi đóng tab.
+- Model tạo nhóm mặc định là `gemini-3.5-flash-lite`, còn model trả lời trực tiếp vẫn là `GEMINI_MODEL`. Cấu hình tùy chọn `GEMINI_BATCH_MODEL` ở `.env.local`; giữ khóa server bí mật.
+- Nhiều bình luận trong một yêu cầu **vẫn đều do Gemini tạo từ ảnh/caption thật**. Không có câu độc thoại viết sẵn. Người dùng đáp trả bình luận nào thì AI đó vẫn trả lời qua luồng chat đơn lẻ để giữ ngữ cảnh.
+- Khi Gemini báo `429`, ứng dụng **tạm dừng gọi nhóm thêm 60 phút** trong phiên tab hiện tại; với `503` hoặc timeout thì tạm dừng 10 phút. Bấm **Tạo tiếp bình luận** sau khi hạn mức đã hồi phục để thử tiếp. Không có cách nào bảo đảm tạo 100 bình luận nếu quota Google đã hết.
+- Hạn mức Google có giới hạn số request/phút, token/phút, request/ngày; việc giảm số request không loại bỏ giới hạn token và chi phí. Dùng cài đặt 25 bình luận để thử trước, kiểm tra bảng quota tại https://aistudio.google.com/rate-limit rồi mới nâng lên 100/200. Các ảnh lớn và phản hồi dài tiêu thụ token nhiều hơn.
+- Dữ liệu lưu tối đa **399 comment mỗi bài** theo kiểm tra server hiện hành; mục tiêu 200 còn chỗ cho phản hồi qua lại. Nếu muốn vượt mốc đó, cần tối ưu lưu trữ và phân trang trước.

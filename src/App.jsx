@@ -167,7 +167,7 @@ function Profile({ profile, posts, onEditProfile, onCreate, onOpen, onEdit, onDe
   return <div className="page-section profile-page"><div className="profile-cover"><div className="cover-sticker"><Mascot size={92}/></div><span className="cover-word">TOXIC! ⚡</span></div><div className="profile-intro"><MeAvatar profile={profile} size="lg"/><div className="profile-main"><h1>{profile.name} <span className="owner-tag">Chủ thớt</span></h1><small>{profile.username} · <Eye size={12}/> Chỉ mình bạn đăng bài</small><p>{profile.bio}</p></div><button className="btn btn-outline" onClick={onEditProfile}><Pencil size={16}/> Sửa hồ sơ</button></div><div className="profile-stat-row"><div><PenSquare size={20}/><strong>{posts.length}</strong><span>bài đăng</span></div><div><MessageCircle size={20}/><strong>{count}</strong><span>bình luận AI</span></div><div><Flame size={20}/><strong>{posts.length ? Math.max(...posts.map(p=>p.comments.length)) : 0}</strong><span>drama cao nhất</span></div></div><div className="profile-list-head"><div><span className="eyebrow">MY POSTS</span><h2>Bài đăng của bạn</h2></div><button className="btn btn-primary" onClick={onCreate}><Plus size={18}/> Tạo bài đăng</button></div><div className="filter-pills"><button className={filter === 'new' ? 'active' : ''} onClick={() => setFilter('new')}><Clock size={15}/> Mới nhất</button><button className={filter === 'hot' ? 'active' : ''} onClick={() => setFilter('hot')}><Flame size={15}/> Bị cà khịa nhiều nhất</button></div>{!posts.length ? <Empty icon={PenSquare} title="Chưa đăng bài nào" text="Tạo bài viết đầu tiên để các AI vào kiếm chuyện."/> : sorted.map(post => <div key={post.id} className="profile-post"><button className="profile-post-open" onClick={() => onOpen(post.id)}>{post.image ? <img src={post.image} alt=""/> : <div className="profile-post-placeholder"><MessageSquareText/></div>}<span><strong>{post.text.slice(0, 100) || 'Bài viết có ảnh'}</strong><small>{relativeTime(post.createdAt)} · {post.comments.length} bình luận AI</small><span className="profile-tags"><MiniBadge icon={Flame} tone="orange">Drama {post.comments.length > 8 ? 'cao' : 'vừa'}</MiniBadge>{post.comments.length > 0 && <MiniBadge tone="green">Đang tranh luận</MiniBadge>}</span></span></button><div className="profile-post-controls"><IconButton icon={Pencil} title="Sửa bài" onClick={() => onEdit(post)}/><IconButton icon={Trash2} title="Xóa bài" onClick={() => onDelete(post.id)}/></div></div>)}</div>;
 }
 function Settings({ settings, setSettings, onReset, onExport, live }) {
-  return <div className="page-section"><div className="section-top"><div><div className="eyebrow">PERSONALIZE YOUR CHAOS</div><h1>Cài đặt</h1><p>Bạn là người kiểm soát độ ồn của cả cõi mạng.</p></div><Settings2 className="settings-main-icon" size={36}/></div><div className="settings-panel"><h2><Flame size={21}/> Chế độ Toxic</h2><p className="settings-description">ToxicBook chỉ có một chế độ: AI vào cà khịa và cãi tay đôi. Chọn mức độ phù hợp với bạn.</p><div className="level-grid">{[{id:'mild',title:'🌶️ Cà khịa nhẹ',desc:'Hài hước, không chửi tục'},{id:'medium',title:'🔥 Toxic vừa',desc:'Gắt, mỉa mai và bắt bẻ'},{id:'spicy',title:'💀 Toxic cực mạnh',desc:'Đáp trả sắc, có thể chửi tục'}].map(x => <button key={x.id} className={settings.roastLevel === x.id ? 'level active' : 'level'} onClick={() => setSettings({ roastLevel: x.id })}><strong>{x.title}</strong><small>{x.desc}</small>{settings.roastLevel === x.id && <Check size={16}/>}</button>)}</div><p className="privacy-reminder"><ShieldCheck size={16}/> Vẫn có giới hạn: AI không đe dọa, tiết lộ đời tư hay công kích đặc điểm nhạy cảm.</p></div><div className="settings-panel"><h2><Bot size={21}/> Cộng đồng AI</h2><label className="settings-row"><span><strong>Số AI tham gia khi đăng bài</strong><small>Mỗi nhân vật có tính cách và avatar riêng</small></span><select value={settings.numberOfAgents} onChange={e => setSettings({ numberOfAgents: +e.target.value })}><option value="1">1 AI</option><option value="3">3 AI</option><option value="5">5 AI</option></select></label><label className="settings-row"><span><strong>AI tự bình luận bổ sung</strong><small>Không cần bấm Kích drama: AI tự vào bài mới và có thể quay lại bài cũ mỗi 4 phút khi tab đang mở. Mỗi lượt dùng API Gemini.</small></span><input type="checkbox" checked={settings.autoDrama} onChange={e => setSettings({ autoDrama: e.target.checked })}/></label><label className="settings-row"><span><strong>Âm thanh thông báo</strong><small>Kêu nhẹ mỗi khi nhận bình luận mới</small></span><input type="checkbox" checked={settings.sounds} onChange={e => setSettings({ sounds: e.target.checked })}/></label></div><div className="settings-panel"><h2><ShieldCheck size={21}/> Dữ liệu và kết nối</h2><div className="connection-state"><span className={`status-dot ${live ? 'live' : ''}`}/><div><strong>{live ? 'Gemini đã cấu hình' : 'Gemini chưa được cấu hình'}</strong><small>{live ? 'Lời bình mới được gọi từ Gemini; khi API lỗi sẽ hiển thị lỗi, không dựng câu mẫu.' : 'Thêm GEMINI_API_KEY vào .env.local ở server rồi khởi động lại web.'}</small></div></div><div className="settings-cta"><button className="btn btn-outline" onClick={onExport}><Download size={16}/> Xuất dữ liệu JSON</button><button className="btn btn-danger" onClick={onReset}><RotateCcw size={16}/> Đặt lại dữ liệu</button></div><p className="settings-disclaimer">Dữ liệu được lưu ở server: file JSON khi chạy trên máy, hoặc Supabase khi triển khai cloud. Web chỉ dành cho một chủ tài khoản; bảo vệ bằng mật khẩu trước khi công khai.</p></div></div>;
+  return <div className="page-section"><div className="section-top"><div><div className="eyebrow">PERSONALIZE YOUR CHAOS</div><h1>Cài đặt</h1><p>Bạn là người kiểm soát độ ồn của cả cõi mạng.</p></div><Settings2 className="settings-main-icon" size={36}/></div><div className="settings-panel"><h2><Flame size={21}/> Chế độ Toxic</h2><p className="settings-description">ToxicBook chỉ có một chế độ: AI vào cà khịa và cãi tay đôi. Chọn mức độ phù hợp với bạn.</p><div className="level-grid">{[{id:'mild',title:'🌶️ Cà khịa nhẹ',desc:'Hài hước, không chửi tục'},{id:'medium',title:'🔥 Toxic vừa',desc:'Gắt, mỉa mai và bắt bẻ'},{id:'spicy',title:'💀 Toxic cực mạnh',desc:'Đáp trả sắc, có thể chửi tục'}].map(x => <button key={x.id} className={settings.roastLevel === x.id ? 'level active' : 'level'} onClick={() => setSettings({ roastLevel: x.id })}><strong>{x.title}</strong><small>{x.desc}</small>{settings.roastLevel === x.id && <Check size={16}/>}</button>)}</div><p className="privacy-reminder"><ShieldCheck size={16}/> Vẫn có giới hạn: AI không đe dọa, tiết lộ đời tư hay công kích đặc điểm nhạy cảm.</p></div><div className="settings-panel"><h2><Bot size={21}/> Cộng đồng AI</h2><label className="settings-row"><span><strong>Số AI tham gia khi đăng bài</strong><small>Mỗi nhân vật có tính cách và avatar riêng</small></span><select value={settings.numberOfAgents} onChange={e => setSettings({ numberOfAgents: +e.target.value })}><option value="1">1 AI</option><option value="3">3 AI</option><option value="5">5 AI</option></select></label><label className="settings-row"><span><strong>Mục tiêu bình luận AI mỗi bài</strong><small>Mỗi 4 phút, AI tự tạo thêm theo nhóm tối đa 10 câu; dừng khi đủ mục tiêu hoặc gặp hạn mức Google.</small></span><select value={settings.targetComments || 100} onChange={e => setSettings({ targetComments: +e.target.value })}><option value="25">25 bình luận</option><option value="50">50 bình luận</option><option value="100">100 bình luận</option><option value="200">200 bình luận</option></select></label><label className="settings-row"><span><strong>AI tự bình luận bổ sung</strong><small>Chỉ khi tab đang hiển thị: AI thêm tối đa 10 bình luận từ một lần gọi Gemini mỗi 4 phút, đến mục tiêu đã chọn. Có thể tiêu thụ quota hoặc phát sinh chi phí.</small></span><input type="checkbox" checked={settings.autoDrama} onChange={e => setSettings({ autoDrama: e.target.checked })}/></label><label className="settings-row"><span><strong>Âm thanh thông báo</strong><small>Kêu nhẹ mỗi khi nhận bình luận mới</small></span><input type="checkbox" checked={settings.sounds} onChange={e => setSettings({ sounds: e.target.checked })}/></label></div><div className="settings-panel"><h2><ShieldCheck size={21}/> Dữ liệu và kết nối</h2><div className="connection-state"><span className={`status-dot ${live ? 'live' : ''}`}/><div><strong>{live ? 'Gemini đã cấu hình' : 'Gemini chưa được cấu hình'}</strong><small>{live ? 'Lời bình mới được gọi từ Gemini; khi API lỗi sẽ hiển thị lỗi, không dựng câu mẫu.' : 'Thêm GEMINI_API_KEY vào .env.local ở server rồi khởi động lại web.'}</small></div></div><div className="settings-cta"><button className="btn btn-outline" onClick={onExport}><Download size={16}/> Xuất dữ liệu JSON</button><button className="btn btn-danger" onClick={onReset}><RotateCcw size={16}/> Đặt lại dữ liệu</button></div><p className="settings-disclaimer">Dữ liệu được lưu ở server: file JSON khi chạy trên máy, hoặc Supabase khi triển khai cloud. Web chỉ dành cho một chủ tài khoản; bảo vệ bằng mật khẩu trước khi công khai.</p></div></div>;
 }
 function AgentsPage({ onBack, posts }) {
   return <div className="page-section"><button className="back-link" onClick={onBack}><ArrowLeft size={18}/> Quay lại</button><div className="section-top"><div><div className="eyebrow">THE TROUBLEMAKERS</div><h1>Hội đồng cà khịa 😈</h1><p>Không ai giống ai, mà ai cũng có chuyện để nói.</p></div></div><div className="agent-gallery">{AGENTS.map(a => <div key={a.id} className="agent-profile-card"><AgentAvatar id={a.id} size="lg" showRing/><div><h3>{a.name} <span className="ai-badge">AI</span></h3><p className="agent-handle">{a.handle}</p><p>{a.label}</p><div className="agent-profile-bottom"><MessageCircle size={15}/> {posts.reduce((x,p)=>x+p.comments.filter(c=>c.aiId===a.id).length,0)} bình luận</div></div></div>)}</div></div>;
@@ -183,6 +183,8 @@ export default function App() {
   const [aiJobs, setAiJobs] = useState({});
   const initialAttempted = useRef(new Set());
   const seedRunning = useRef(new Set());
+  const batchRunning = useRef(new Set());
+  const batchPauseUntil = useRef(0);
   const recoveryChecked = useRef(false);
   const [likedComments, setLikedComments] = useState([]);
   const [toast, setToast] = useState('');
@@ -265,6 +267,33 @@ export default function App() {
     }
     return result;
   }, [live]);
+  const generateBatch = useCallback(async ({post, history = [], count}) => {
+    if(!live)throw new Error('Gemini chưa được cấu hình.');
+    let response;
+    try {
+      response=await fetch('/api/batch-comments',{
+        method:'POST',credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          postText:post.text,
+          postImage:post.image?.startsWith('data:image/')?post.image:null,
+          history:history.slice(-24),
+          roastLevel:dataRef.current.settings.roastLevel,
+          count,
+        })
+      });
+    } catch {
+      const error=new Error('Không kết nối được server khi tạo nhóm bình luận.');
+      error.code='NETWORK_ERROR';throw error;
+    }
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok || result.source!=='gemini' || !Array.isArray(result.comments) || !result.comments.length){
+      const error=new Error(result.error||'Gemini không tạo được nhóm bình luận.');
+      error.code=result.code||'GEMINI_ERROR';
+      throw error;
+    }
+    return result;
+  },[live]);
   const addAgentComment = useCallback((postId, { agentId, text, parentId = null, source = 'gemini', notifyUser = true }) => {
     const comment = { id: uid(), aiId: agentId, text, parentId, source, createdAt: new Date().toISOString(), likes: 0 };
     write(prev => ({ ...prev, posts: prev.posts.map(p => p.id === postId ? { ...p, comments: [...p.comments, comment] } : p), notifications: notifyUser ? [{ id: uid(), postId, aiId: agentId, text: parentId ? 'đã trả lời trong một cuộc tranh cãi' : 'đã bình luận bài đăng của bạn', preview: text.slice(0, 130), createdAt: comment.createdAt, read: false, type: parentId ? 'reply' : 'comment' }, ...prev.notifications].slice(0, 250) : prev.notifications }));
@@ -351,14 +380,52 @@ export default function App() {
     } catch(error) {notify(`Gemini chưa thể đáp trả: ${error.message}`);} finally { setBusyPosts(old=>({...old,[postId]:false})); }
   };
   const moreDrama = async postId => {
-    if(busyPosts[postId]) return; const post=dataRef.current.posts.find(p=>p.id===postId); if(!post) return;
+    // A batch has at most ten real Gemini replies. Keep it to one request at a
+    // time and stop on quota errors instead of hammering Google.
+    if(batchRunning.current.has(postId)||seedRunning.current.has(postId)||Date.now()<batchPauseUntil.current)return;
+    const post=dataRef.current.posts.find(p=>p.id===postId);
+    if(!post)return;
+    const goal=dataRef.current.settings.targetComments||100;
+    const current=post.comments.filter(c=>c.aiId).length;
+    if(current>=goal)return;
+    const count=Math.min(10,goal-current);
+    batchRunning.current.add(postId);
     setBusyPosts(old=>({...old,[postId]:true}));
-    try { const used = post.comments.filter(c=>c.aiId).map(c=>c.aiId); const available=AGENTS.filter(a=>!used.includes(a.id)); const chosen=available.length?available[Math.floor(Math.random()*available.length)]:AGENTS[Math.floor(Math.random()*AGENTS.length)];
-      const history=post.comments.slice(-20).map(c=>({role:c.aiId?'ai':'user',name:c.aiId?agent(c.aiId).name:'Chủ thớt',text:c.text}));
-      const response=await generate({agentId:chosen.id,post,history,mode:post.comments.length?'reply':'seed'});
-      addAgentComment(postId,{agentId:chosen.id,text:response.text,parentId:null,source:response.source});
-      notify(`${chosen.name} vừa vào kiếm chuyện! 🍿`);
-    } catch(error) {notify(`Không tạo được bình luận AI: ${error.message}`);} finally {setBusyPosts(old=>({...old,[postId]:false}));}
+    setAiJobs(old=>({...old,[postId]:{status:'loading',current:current+1,total:goal,posted:current,failed:0}}));
+    try {
+      const result=await generateBatch({post,history:post.comments,count});
+      const batch=result.comments.map((c,i)=>({
+        id:uid(),aiId:c.agentId,text:c.text,parentId:null,source:'gemini',
+        createdAt:new Date(Date.now()+i*1000).toISOString(),likes:0,
+      }));
+      // One state write for the entire batch (rather than ten queued uploads).
+      write(prev=>{
+        if(!prev.posts.some(p=>p.id===postId))return prev;
+        const notice={id:uid(),postId,aiId:batch[0].aiId,
+          text:`và ${batch.length-1} tài khoản AI khác vừa bình luận bài đăng của bạn`,
+          preview:batch[0].text.slice(0,130),
+          createdAt:batch[0].createdAt,read:false,type:'comment'};
+        return {...prev,
+          posts:prev.posts.map(p=>p.id===postId?{...p,comments:[...p.comments,...batch]}:p),
+          notifications:[notice,...prev.notifications].slice(0,250)};
+      });
+      const total=current+batch.length;
+      setAiJobs(old=>({...old,[postId]:{
+        status:'done',posted:total,total:goal,remaining:Math.max(0,goal-total),failed:0,
+      }}));
+    } catch(error){
+      if(error.code==='GEMINI_QUOTA'||error.code==='LOCAL_RATE_LIMIT')batchPauseUntil.current=Date.now()+60*60*1000;
+      else if(['GEMINI_OVERLOADED','GEMINI_TIMEOUT'].includes(error.code))batchPauseUntil.current=Date.now()+10*60*1000;
+      else batchPauseUntil.current=Date.now()+5*60*1000;
+      setAiJobs(old=>({...old,[postId]:{
+        status:'partial',posted:current,total:goal,remaining:Math.max(0,goal-current),failed:1,
+        error:`${error.message} Đã tạm dừng gọi tự động để bảo vệ quota.`,
+      }}));
+      notify('Gemini tạm dừng tạo bình luận hàng loạt. Xem lý do dưới bài đăng.');
+    } finally {
+      batchRunning.current.delete(postId);
+      setBusyPosts(old=>({...old,[postId]:false}));
+    }
   };
   // Recover the newest previously-empty post automatically when a user opens
   // a version that fixed Gemini integration. Only one recovery attempt per page
@@ -374,7 +441,22 @@ export default function App() {
     void startSeed(newestIncomplete);
   }, [startup, live, data.posts]);
   // Periodic drama only works while the tab is open; no hidden cron/push claims.
-  useEffect(() => {if (!data.settings.autoDrama || !live || startup !== 'ready') return; const interval = window.setInterval(() => {if (document.visibilityState !== 'visible') return; const posts=dataRef.current.posts;if (!posts.length) return; const idx=Math.floor(Math.random()*Math.min(posts.length,3)); const post=posts[idx]; if (!busyPosts[post.id]) moreDrama(post.id);}, 240000); return ()=>clearInterval(interval);}, [data.settings.autoDrama, busyPosts, live, startup]);
+  useEffect(() => {
+    if(!data.settings.autoDrama||!live||startup!=='ready')return;
+    const interval=window.setInterval(()=>{
+      if(document.visibilityState!=='visible'||Date.now()<batchPauseUntil.current)return;
+      const target=dataRef.current.settings.targetComments||100;
+      const candidates=[...dataRef.current.posts].sort(dateDesc).slice(0,3).filter(post=>
+        post.comments.filter(c=>c.aiId).length<target
+        && !batchRunning.current.has(post.id)
+        && !seedRunning.current.has(post.id)
+      );
+      if(!candidates.length)return;
+      const post=candidates[Math.floor(Math.random()*candidates.length)];
+      void moreDrama(post.id);
+    },240000);
+    return ()=>clearInterval(interval);
+  },[data.settings.autoDrama,live,startup]);
   useEffect(()=>{ if(page==='notifications' && unread && notificationsFilter==='all') { /* keep unread until opened */ } },[page,unread,notificationsFilter]);
   const sortedPosts = useMemo(() => [...data.posts].filter(p => (p.text + ' ' + data.profile.name).toLowerCase().includes(search.trim().toLowerCase())).sort(sort==='hot'?(a,b)=>b.comments.length-a.comments.length:dateDesc),[data.posts,data.profile.name,search,sort]);
   const onExport = () => { const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const href=URL.createObjectURL(blob);const a=document.createElement('a');a.href=href;a.download='toxicbook-backup.json';document.body.append(a);a.click();a.remove();URL.revokeObjectURL(href);notify('Đã xuất dữ liệu!'); };
@@ -390,8 +472,8 @@ export default function App() {
         {(page==='home'||page==='posts') && <><div className="page-hero"><div><span className="eyebrow"><span className="eyebrow-bar"/> WELCOME TO THE CHAOS</span><h1>{page==='posts'?'Bài đăng của bạn':'Bảng tin ToxicBook'} <span className="hero-flame">🔥</span></h1><p>Đăng một câu vu vơ. Để cả cõi AI vào suy diễn.</p></div><button className="btn btn-primary" onClick={()=>setModal({type:'post'})}><Plus size={19}/> Tạo bài đăng</button></div>
         <button className="quick-compose" onClick={()=>setModal({type:'post'})}><MeAvatar profile={data.profile} size="md"/><span>Hôm nay muốn bị cộng đồng AI soi chuyện gì?</span><span className="quick-plus"><ImagePlus size={21}/></span></button>
         <div className="feed-toolbar"><div className="feed-title"><Flame size={18}/> {page==='posts'?'Toàn bộ bài viết':'Drama mới nhất'} <span className="feed-count">{sortedPosts.length}</span></div><div className="feed-tools"><div className="search-field"><Search size={17}/><input aria-label="Tìm bài đăng" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tìm bài viết…"/></div><button className={`sort-toggle ${sort==='recent'?'active':''}`} onClick={()=>setSort('recent')}><Clock size={15}/> Mới</button><button className={`sort-toggle ${sort==='hot'?'active':''}`} onClick={()=>setSort('hot')}><Flame size={15}/> Hot</button></div></div>
-        <div className="feed-list">{sortedPosts.length?sortedPosts.map(post=><PostCard key={post.id} post={post} profile={data.profile} expanded={true} onOpen={openPost} onEdit={p=>setModal({type:'post',post:p})} onDelete={deletePost} onLike={likePost} onReply={(postId,c)=>setReplyTarget({postId,parentId:c.id,aiId:c.aiId})} onComment={sendComment} onRetryAI={id => { const post = dataRef.current.posts.find(p => p.id === id); if (post) void startSeed(post); }} aiJob={aiJobs[post.id]} busy={busyPosts[post.id]} replyTarget={replyTarget} clearReply={()=>setReplyTarget(null)} likeComment={likeComment} deleteComment={deleteComment} likedComments={likedComments} showToast={notify}/>):<Empty icon={Search} title="Không tìm thấy bài viết" text="Thử một từ khác hoặc tạo bài đăng mới nha."/>}</div></>}
-        {page==='post' && (activePost ? <><button className="back-link" onClick={()=>navigate('home')}><ArrowLeft size={18}/> Trở về bảng tin</button><div className="detail-heading"><span className="eyebrow">DRAMA THREAD</span><h1>Cuộc khẩu chiến <Flame size={28} fill="currentColor"/></h1><p>Các AI sẽ phản hồi dựa trên ngữ cảnh của chuỗi bình luận.</p></div><PostCard key={activePost.id} post={activePost} profile={data.profile} expanded={true} onOpen={openPost} onEdit={p=>setModal({type:'post',post:p})} onDelete={deletePost} onLike={likePost} onReply={(postId,c)=>setReplyTarget({postId,parentId:c.id,aiId:c.aiId})} onComment={sendComment} onRetryAI={id => { const post = dataRef.current.posts.find(p => p.id === id); if (post) void startSeed(post); }} aiJob={aiJobs[activePost.id]} busy={busyPosts[activePost.id]} replyTarget={replyTarget} clearReply={()=>setReplyTarget(null)} likeComment={likeComment} deleteComment={deleteComment} likedComments={likedComments} showToast={notify}/></> : <Empty title="Bài viết không tồn tại" text="Có thể bài này đã bị xóa."/>)}
+        <div className="feed-list">{sortedPosts.length?sortedPosts.map(post=><PostCard key={post.id} post={post} profile={data.profile} expanded={true} onOpen={openPost} onEdit={p=>setModal({type:'post',post:p})} onDelete={deletePost} onLike={likePost} onReply={(postId,c)=>setReplyTarget({postId,parentId:c.id,aiId:c.aiId})} onComment={sendComment} onRetryAI={id => { const post=dataRef.current.posts.find(p=>p.id===id); if(!post)return; batchPauseUntil.current=0; const starters=new Set(post.comments.filter(c=>c.aiId).map(c=>c.aiId)); if(starters.size < dataRef.current.settings.numberOfAgents) void startSeed(post); else void moreDrama(id); }} aiJob={aiJobs[post.id]} busy={busyPosts[post.id]} replyTarget={replyTarget} clearReply={()=>setReplyTarget(null)} likeComment={likeComment} deleteComment={deleteComment} likedComments={likedComments} showToast={notify}/>):<Empty icon={Search} title="Không tìm thấy bài viết" text="Thử một từ khác hoặc tạo bài đăng mới nha."/>}</div></>}
+        {page==='post' && (activePost ? <><button className="back-link" onClick={()=>navigate('home')}><ArrowLeft size={18}/> Trở về bảng tin</button><div className="detail-heading"><span className="eyebrow">DRAMA THREAD</span><h1>Cuộc khẩu chiến <Flame size={28} fill="currentColor"/></h1><p>Các AI sẽ phản hồi dựa trên ngữ cảnh của chuỗi bình luận.</p></div><PostCard key={activePost.id} post={activePost} profile={data.profile} expanded={true} onOpen={openPost} onEdit={p=>setModal({type:'post',post:p})} onDelete={deletePost} onLike={likePost} onReply={(postId,c)=>setReplyTarget({postId,parentId:c.id,aiId:c.aiId})} onComment={sendComment} onRetryAI={id => { const post=dataRef.current.posts.find(p=>p.id===id); if(!post)return; batchPauseUntil.current=0; const starters=new Set(post.comments.filter(c=>c.aiId).map(c=>c.aiId)); if(starters.size < dataRef.current.settings.numberOfAgents) void startSeed(post); else void moreDrama(id); }} aiJob={aiJobs[activePost.id]} busy={busyPosts[activePost.id]} replyTarget={replyTarget} clearReply={()=>setReplyTarget(null)} likeComment={likeComment} deleteComment={deleteComment} likedComments={likedComments} showToast={notify}/></> : <Empty title="Bài viết không tồn tại" text="Có thể bài này đã bị xóa."/>)}
         {page==='notifications' && <Notifications items={data.notifications} posts={data.posts} navigate={openPost} markAllRead={()=>write(prev=>({...prev,notifications:prev.notifications.map(n=>({...n,read:true}))}))} unread={unread} filter={notificationsFilter} setFilter={setNotificationsFilter}/>}
         {page==='profile' && <Profile profile={data.profile} posts={data.posts} onEditProfile={()=>setModal({type:'profile'})} onCreate={()=>setModal({type:'post'})} onOpen={openPost} onEdit={p=>setModal({type:'post',post:p})} onDelete={deletePost} onLike={likePost} busy={busyPosts} onToast={notify} filter={profileFilter} setFilter={setProfileFilter}/>}
         {page==='settings' && <Settings settings={data.settings} setSettings={changeSettings} onReset={onReset} onExport={onExport} live={live}/>}

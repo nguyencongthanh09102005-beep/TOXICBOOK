@@ -140,7 +140,7 @@ function CommentTree({ post, profile, onReply, onLike, onDelete, replyTarget, se
   const render = (parent = null, depth = 0, visited = new Set()) => (nodes.get(parent) || []).filter(c => !visited.has(c.id)).map(c => <Comment key={c.id} comment={c} profile={profile} onReply={onReply} onLike={onLike} onDelete={onDelete} liked={likedComments.includes(c.id)} replyActive={replyTarget?.postId === post.id && replyTarget?.parentId === c.id} sendReply={sendReply} clearReply={clearReply} busy={busy}>{depth < 12 ? render(c.id, depth + 1, new Set([...visited, c.id])) : []}</Comment>);
   return <div className="comment-list">{render()}</div>;
 }
-function PostCard({ post, profile, expanded, onOpen, onEdit, onDelete, onLike, onReply, onComment, busy, replyTarget, clearReply, likeComment, deleteComment, likedComments, showToast }) {
+function PostCard({ post, profile, expanded, onOpen, onEdit, onDelete, onLike, onReply, onComment, onRetryAI, aiJob, busy, replyTarget, clearReply, likeComment, deleteComment, likedComments, showToast }) {
   const [menu, setMenu] = useState(false);
   const count = post.comments.length;
   return <article className={`post-card ${expanded ? 'post-expanded' : ''}`}>
@@ -148,6 +148,11 @@ function PostCard({ post, profile, expanded, onOpen, onEdit, onDelete, onLike, o
     <div className="post-caption">{post.text}</div>{post.image && <div className="post-photo" onClick={() => onOpen(post.id)} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') onOpen(post.id); }}><img src={post.image} alt="Ảnh bài đăng" loading="lazy"/></div>}
     <div className="post-metrics"><span className="like-mark"><Heart size={14} fill="currentColor"/></span> {fmt(post.likes)}<button onClick={() => onOpen(post.id)}><MessageCircle size={16}/> {fmt(count)} bình luận</button><span className="metric-ai"><Bot size={15}/> AI hư cấu · lời thoại tạo sinh</span></div>
     <div className="post-interactions"><button className={post.liked ? 'pressed' : ''} onClick={() => onLike(post.id)}><Heart size={18} fill={post.liked ? 'currentColor' : 'none'}/> Thích</button><button onClick={() => onOpen(post.id)}><MessageCircle size={18}/> Bình luận</button>{busy && <span className="auto-ai-status"><Bot size={18}/> {post.image ? 'AI đang soi ảnh và bình luận…' : 'AI đang viết bình luận…'}</span>}</div>
+    {aiJob && (aiJob.status === 'loading' || aiJob.status === 'error' || aiJob.status === 'partial') && <div className={`ai-progress ai-progress-${aiJob.status}`} role="status">
+      {aiJob.status === 'loading' ? <><Bot size={17}/><span>Gemini đang tạo bình luận {aiJob.current || 1}/{aiJob.total || 3}{post.image ? ' từ ảnh thật' : ''}… Mỗi lượt có thể mất thời gian.</span></> :
+        <><AlertCircle size={17}/><span>{aiJob.posted ? `Đã có ${aiJob.posted} bình luận, nhưng ${aiJob.failed} lượt Gemini lỗi: ${aiJob.error}` : `Chưa tạo được bình luận AI: ${aiJob.error}`}</span>
+          {!aiJob.posted && <button type="button" onClick={() => onRetryAI(post.id)}>Thử lại</button>}</>}
+    </div>}
     {expanded && <section className="post-comments"><div className="comments-title"><h3>Bình luận <span>({fmt(count)})</span></h3><MiniBadge icon={Bot}>Cộng đồng AI</MiniBadge></div>{count ? <CommentTree post={post} profile={profile} onReply={c => onReply(post.id, c)} onLike={id => likeComment(post.id, id)} onDelete={id => deleteComment(post.id, id)} replyTarget={replyTarget} clearReply={clearReply} sendReply={text => onComment(post.id, text, replyTarget)} busy={!!busy} likedComments={likedComments}/> : <Empty icon={MessageCircle} title={busy ? 'AI đang xem bài đăng…' : 'Chưa có bình luận'} text={busy ? 'AI đang phân tích ảnh và caption để tự cà khịa, không cần bấm nút.' : 'Gemini sẽ tự bình luận sau khi đăng. Nếu chưa xuất hiện, kiểm tra thông báo lỗi hoặc kết nối Gemini.'}/>}<div className="comment-bottom">{!replyTarget || replyTarget.postId !== post.id ? <ReplyComposer profile={profile} onSend={text => onComment(post.id, text, null)} busy={!!busy}/> : <span className="replying-help"><MessageCircle size={15}/> Bạn đang trả lời trong hội thoại phía trên. <button onClick={clearReply}>Hủy</button></span>}</div></section>}
     {!expanded && count > 0 && <div className="comment-preview"><div className="preview-avatars">{[...new Set(post.comments.filter(c => c.aiId).map(c => c.aiId))].slice(0, 3).map(id => <AgentAvatar key={id} id={id} size="sm"/>)}</div><button onClick={() => onOpen(post.id)}>Xem tất cả {count} bình luận <ChevronRight size={16}/></button></div>}
   </article>;
@@ -175,6 +180,9 @@ export default function App() {
   const [modal, setModal] = useState(null);
   const [replyTarget, setReplyTarget] = useState(null);
   const [busyPosts, setBusyPosts] = useState({});
+  const [aiJobs, setAiJobs] = useState({});
+  const initialAttempted = useRef(new Set());
+  const seedRunning = useRef(new Set());
   const [likedComments, setLikedComments] = useState([]);
   const [toast, setToast] = useState('');
   const [live, setLive] = useState(false);
@@ -258,7 +266,12 @@ export default function App() {
     return comment;
   }, []);
   const startSeed = async post => {
+    // Prevent overlapping AI requests for the same post, including React Strict Mode.
+    if (seedRunning.current.has(post.id)) return;
+    seedRunning.current.add(post.id);
+    initialAttempted.current.add(post.id);
     setBusyPosts(old => ({ ...old, [post.id]: true }));
+    setAiJobs(old => ({ ...old, [post.id]: {status:'loading', current:1, total:dataRef.current.settings.numberOfAgents, posted:0, failed:0} }));
     try {
       const result = await runInitialComments({
         post,
@@ -267,18 +280,33 @@ export default function App() {
         generate,
         addComment: addAgentComment,
         postStillExists: () => dataRef.current.posts.some(item => item.id === post.id),
+        onProgress: progress => {
+          if (progress.phase !== 'finished') {
+            setAiJobs(old => ({
+              ...old,
+              [post.id]: {...old[post.id], status:'loading', current:progress.current, total:progress.total, posted:progress.posted, failed:progress.failed}
+            }));
+          }
+        }
       });
+      const status = result.failed ? (result.posted ? 'partial' : 'error') : 'done';
+      setAiJobs(old => ({ ...old, [post.id]: {status, posted:result.posted, failed:result.failed, error:result.firstError, total:dataRef.current.settings.numberOfAgents} }));
       if (result.failed) {
         notify(result.posted
-          ? `Đã có ${result.posted} AI bình luận; ${result.failed} AI còn lại bị lỗi: ${result.firstError}`
-          : `Gemini chưa thể bình luận tự động: ${result.firstError}`);
+          ? `Đã có ${result.posted} AI bình luận; ${result.failed} AI gặp lỗi. Xem chi tiết dưới bài viết.`
+          : 'Gemini chưa bình luận được. Xem lỗi ngay dưới bài viết.');
       }
-    } catch (error) { notify(`Gemini chưa thể bình luận: ${error.message}`); }
-    finally { setBusyPosts(old => ({ ...old, [post.id]: false })); }
+    } catch (error) {
+      setAiJobs(old => ({ ...old, [post.id]: {status:'error', posted:0, failed:1, error:error.message || 'Không rõ nguyên nhân'} }));
+      notify('Gemini bị lỗi. Xem chi tiết dưới bài viết.');
+    } finally {
+      seedRunning.current.delete(post.id);
+      setBusyPosts(old => ({ ...old, [post.id]: false }));
+    }
   };
   const savePost = (text, image) => {
     if (modal?.post) { const id = modal.post.id; write(prev => ({ ...prev, posts: prev.posts.map(p => p.id === id ? { ...p, text, image } : p) })); notify('Đã cập nhật bài đăng!'); }
-    else { const post = {id: uid(), text, image, createdAt: new Date().toISOString(), likes: 0, liked: false, comments: []}; write(prev => ({ ...prev, posts: [post, ...prev.posts] })); if (live) setTimeout(() => startSeed(post), 250); notify(live ? (image ? 'Đã đăng ảnh! AI đang tự soi ảnh để chê… 😈' : 'Đã đăng bài! AI đang tự vào bình luận… 😈') : 'Đã đăng bài, nhưng Gemini chưa được cấu hình. Không tạo bình luận mẫu.'); }
+    else { const post = {id: uid(), text, image, createdAt: new Date().toISOString(), likes: 0, liked: false, comments: []}; write(prev => ({ ...prev, posts: [post, ...prev.posts] })); if (live) { initialAttempted.current.add(post.id); setTimeout(() => startSeed(post), 250); } notify(live ? (image ? 'Đã đăng ảnh! AI đang tự soi ảnh để chê… 😈' : 'Đã đăng bài! AI đang tự vào bình luận… 😈') : 'Đã đăng bài, nhưng Gemini chưa được cấu hình. Không tạo bình luận mẫu.'); }
     setModal(null); setPage('home'); setActivePostId(null);
   };
   const deletePost = id => { if (!window.confirm('Xóa bài này cùng tất cả bình luận và drama?')) return; write(prev => ({...prev,posts:prev.posts.filter(p=>p.id!==id), notifications:prev.notifications.filter(n=>n.postId!==id)})); if (activePostId === id) navigate('home'); notify('Đã xóa bài đăng.'); };
@@ -319,6 +347,17 @@ export default function App() {
       notify(`${chosen.name} vừa vào kiếm chuyện! 🍿`);
     } catch(error) {notify(`Không tạo được bình luận AI: ${error.message}`);} finally {setBusyPosts(old=>({...old,[postId]:false}));}
   };
+  // Recover the newest previously-empty post automatically when a user opens
+  // a version that fixed Gemini integration. Only one recovery attempt per page
+  // load prevents background quota storms and retries are user-initiated after errors.
+  useEffect(() => {
+    if (startup !== 'ready' || !live || !hydrated.current) return;
+    const newestEmpty = [...dataRef.current.posts].sort(dateDesc).find(post =>
+      post.comments.every(c => !c.aiId) && !initialAttempted.current.has(post.id));
+    if (!newestEmpty) return;
+    initialAttempted.current.add(newestEmpty.id);
+    void startSeed(newestEmpty);
+  }, [startup, live, data.posts]);
   // Periodic drama only works while the tab is open; no hidden cron/push claims.
   useEffect(() => {if (!data.settings.autoDrama || !live || startup !== 'ready') return; const interval = window.setInterval(() => {if (document.visibilityState !== 'visible') return; const posts=dataRef.current.posts;if (!posts.length) return; const idx=Math.floor(Math.random()*Math.min(posts.length,3)); const post=posts[idx]; if (!busyPosts[post.id]) moreDrama(post.id);}, 240000); return ()=>clearInterval(interval);}, [data.settings.autoDrama, busyPosts, live, startup]);
   useEffect(()=>{ if(page==='notifications' && unread && notificationsFilter==='all') { /* keep unread until opened */ } },[page,unread,notificationsFilter]);
@@ -336,8 +375,8 @@ export default function App() {
         {(page==='home'||page==='posts') && <><div className="page-hero"><div><span className="eyebrow"><span className="eyebrow-bar"/> WELCOME TO THE CHAOS</span><h1>{page==='posts'?'Bài đăng của bạn':'Bảng tin ToxicBook'} <span className="hero-flame">🔥</span></h1><p>Đăng một câu vu vơ. Để cả cõi AI vào suy diễn.</p></div><button className="btn btn-primary" onClick={()=>setModal({type:'post'})}><Plus size={19}/> Tạo bài đăng</button></div>
         <button className="quick-compose" onClick={()=>setModal({type:'post'})}><MeAvatar profile={data.profile} size="md"/><span>Hôm nay muốn bị cộng đồng AI soi chuyện gì?</span><span className="quick-plus"><ImagePlus size={21}/></span></button>
         <div className="feed-toolbar"><div className="feed-title"><Flame size={18}/> {page==='posts'?'Toàn bộ bài viết':'Drama mới nhất'} <span className="feed-count">{sortedPosts.length}</span></div><div className="feed-tools"><div className="search-field"><Search size={17}/><input aria-label="Tìm bài đăng" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tìm bài viết…"/></div><button className={`sort-toggle ${sort==='recent'?'active':''}`} onClick={()=>setSort('recent')}><Clock size={15}/> Mới</button><button className={`sort-toggle ${sort==='hot'?'active':''}`} onClick={()=>setSort('hot')}><Flame size={15}/> Hot</button></div></div>
-        <div className="feed-list">{sortedPosts.length?sortedPosts.map(post=><PostCard key={post.id} post={post} profile={data.profile} expanded={true} onOpen={openPost} onEdit={p=>setModal({type:'post',post:p})} onDelete={deletePost} onLike={likePost} onReply={(postId,c)=>setReplyTarget({postId,parentId:c.id,aiId:c.aiId})} onComment={sendComment} busy={busyPosts[post.id]} replyTarget={replyTarget} clearReply={()=>setReplyTarget(null)} likeComment={likeComment} deleteComment={deleteComment} likedComments={likedComments} showToast={notify}/>):<Empty icon={Search} title="Không tìm thấy bài viết" text="Thử một từ khác hoặc tạo bài đăng mới nha."/>}</div></>}
-        {page==='post' && (activePost ? <><button className="back-link" onClick={()=>navigate('home')}><ArrowLeft size={18}/> Trở về bảng tin</button><div className="detail-heading"><span className="eyebrow">DRAMA THREAD</span><h1>Cuộc khẩu chiến <Flame size={28} fill="currentColor"/></h1><p>Các AI sẽ phản hồi dựa trên ngữ cảnh của chuỗi bình luận.</p></div><PostCard key={activePost.id} post={activePost} profile={data.profile} expanded={true} onOpen={openPost} onEdit={p=>setModal({type:'post',post:p})} onDelete={deletePost} onLike={likePost} onReply={(postId,c)=>setReplyTarget({postId,parentId:c.id,aiId:c.aiId})} onComment={sendComment} busy={busyPosts[activePost.id]} replyTarget={replyTarget} clearReply={()=>setReplyTarget(null)} likeComment={likeComment} deleteComment={deleteComment} likedComments={likedComments} showToast={notify}/></> : <Empty title="Bài viết không tồn tại" text="Có thể bài này đã bị xóa."/>)}
+        <div className="feed-list">{sortedPosts.length?sortedPosts.map(post=><PostCard key={post.id} post={post} profile={data.profile} expanded={true} onOpen={openPost} onEdit={p=>setModal({type:'post',post:p})} onDelete={deletePost} onLike={likePost} onReply={(postId,c)=>setReplyTarget({postId,parentId:c.id,aiId:c.aiId})} onComment={sendComment} onRetryAI={id => { const post = dataRef.current.posts.find(p => p.id === id); if (post) void startSeed(post); }} aiJob={aiJobs[post.id]} busy={busyPosts[post.id]} replyTarget={replyTarget} clearReply={()=>setReplyTarget(null)} likeComment={likeComment} deleteComment={deleteComment} likedComments={likedComments} showToast={notify}/>):<Empty icon={Search} title="Không tìm thấy bài viết" text="Thử một từ khác hoặc tạo bài đăng mới nha."/>}</div></>}
+        {page==='post' && (activePost ? <><button className="back-link" onClick={()=>navigate('home')}><ArrowLeft size={18}/> Trở về bảng tin</button><div className="detail-heading"><span className="eyebrow">DRAMA THREAD</span><h1>Cuộc khẩu chiến <Flame size={28} fill="currentColor"/></h1><p>Các AI sẽ phản hồi dựa trên ngữ cảnh của chuỗi bình luận.</p></div><PostCard key={activePost.id} post={activePost} profile={data.profile} expanded={true} onOpen={openPost} onEdit={p=>setModal({type:'post',post:p})} onDelete={deletePost} onLike={likePost} onReply={(postId,c)=>setReplyTarget({postId,parentId:c.id,aiId:c.aiId})} onComment={sendComment} onRetryAI={id => { const post = dataRef.current.posts.find(p => p.id === id); if (post) void startSeed(post); }} aiJob={aiJobs[activePost.id]} busy={busyPosts[activePost.id]} replyTarget={replyTarget} clearReply={()=>setReplyTarget(null)} likeComment={likeComment} deleteComment={deleteComment} likedComments={likedComments} showToast={notify}/></> : <Empty title="Bài viết không tồn tại" text="Có thể bài này đã bị xóa."/>)}
         {page==='notifications' && <Notifications items={data.notifications} posts={data.posts} navigate={openPost} markAllRead={()=>write(prev=>({...prev,notifications:prev.notifications.map(n=>({...n,read:true}))}))} unread={unread} filter={notificationsFilter} setFilter={setNotificationsFilter}/>}
         {page==='profile' && <Profile profile={data.profile} posts={data.posts} onEditProfile={()=>setModal({type:'profile'})} onCreate={()=>setModal({type:'post'})} onOpen={openPost} onEdit={p=>setModal({type:'post',post:p})} onDelete={deletePost} onLike={likePost} busy={busyPosts} onToast={notify} filter={profileFilter} setFilter={setProfileFilter}/>}
         {page==='settings' && <Settings settings={data.settings} setSettings={changeSettings} onReset={onReset} onExport={onExport} live={live}/>}

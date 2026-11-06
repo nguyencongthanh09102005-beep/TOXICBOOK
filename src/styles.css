@@ -37,3 +37,7 @@
 .ai-progress button{font:inherit;background:#fff;border:1px solid currentColor;border-radius:8px;color:inherit;padding:7px 11px;white-space:nowrap;cursor:pointer}
 .ai-progress button:hover{background:#ffe7ef}
 @media(max-width:460px){.ai-progress{flex-wrap:wrap}.ai-progress button{margin-left:auto}}
+
+/* Goal progress for automatically scheduled real-Gemini comment batches. */
+.ai-goal-progress{display:flex;align-items:center;gap:8px;padding:10px 13px;border:1px solid #f3d9e2;background:#fff8fa;color:#9a4667;border-radius:11px;font-size:12px;line-height:1.5;margin:10px 0}
+.ai-goal-progress svg{flex:none;color:#dd3a73}.ai-goal-progress strong{color:#d92d68;font-weight:800}

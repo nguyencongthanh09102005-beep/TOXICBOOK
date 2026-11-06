@@ -8,7 +8,7 @@ import stateHandler from './api/state.js';
 // Only server-side handlers read these secrets; nothing is bundled into React.
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  for (const key of ['GEMINI_API_KEY','GEMINI_MODEL','TOXICBOOK_OWNER_PASSWORD','TOXICBOOK_SESSION_SECRET','SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY']) {
+  for (const key of ['GEMINI_API_KEY','GEMINI_MODEL','GEMINI_FALLBACK_MODEL','TOXICBOOK_OWNER_PASSWORD','TOXICBOOK_SESSION_SECRET','SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY']) {
     if (!process.env[key] && env[key]) process.env[key] = env[key];
   }
   return {

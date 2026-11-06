@@ -42,7 +42,7 @@ export async function runInitialComments({
       onProgress({phase:'failed', current:index+1, total:count, posted, failed:failures.length, persona:persona.name, error:failures.at(-1)});
       // Stop when Google is overloaded or quota-limited; running the other
       // personas immediately would only multiply failed requests and costs.
-      if(['GEMINI_OVERLOADED','GEMINI_QUOTA'].includes(error?.code))break;
+      if(['GEMINI_OVERLOADED','GEMINI_QUOTA','GEMINI_TIMEOUT'].includes(error?.code))break;
     }
   }
   const summary = { posted, existing: existingAgents.size, remaining: Math.max(0,target-existingAgents.size-posted), target, failed: failures.length, firstError: failures[0] || null };

@@ -102,7 +102,7 @@ test('Gemini retries 503 then uses the real vision-capable Flash-Lite fallback',
     assert.equal(res.body.model,'gemini-3.5-flash-lite');
     assert.equal(calls.length,3);
     assert.ok(calls[0].url.includes('gemini-3.8-flash'));
-    assert.ok(calls[1].url.includes('gemini-3.8-flash'));
+    assert.ok(calls[1].url.includes('gemini-3.5-flash-lite'));
     assert.ok(calls[2].url.includes('gemini-3.5-flash-lite'));
     assert.equal(calls[2].payload.contents[0].parts[1].inlineData.mimeType,'image/png');
     assert.equal(calls[2].payload.contents[0].parts[1].inlineData.data,'aGVsbG8=');

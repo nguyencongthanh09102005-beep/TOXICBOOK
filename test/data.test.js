@@ -14,11 +14,11 @@ test('6 AI persona identities have unique IDs',()=>{
 test('new users see empty feed instead of fabricated AI conversations',()=>{
   assert.equal(INITIAL_STATE.posts.length,0);
   assert.equal(INITIAL_STATE.notifications.length,0);
-  assert.equal(INITIAL_STATE.settings.autoDrama,false);
+  assert.equal(INITIAL_STATE.settings.autoDrama,true);
 });
 test('normalizeState preserves persisted posts',()=>{
   const data=normalizeState({posts:[{id:'real'}],notifications:[],profile:{name:'Tôi'},settings:{numberOfAgents:5}});
-  assert.equal(data.posts.length,1);assert.equal(data.profile.name,'Tôi');assert.equal(data.settings.numberOfAgents,5);
+  assert.equal(data.posts.length,1);assert.equal(data.profile.name,'Tôi');assert.equal(data.settings.numberOfAgents,5);assert.equal(data.settings.autoDrama,true);
 });
 test('formatting utility works',()=>{assert.equal(fmt(0),'0');assert.equal(fmt(99),'99');assert.ok(fmt(2000).includes('2'));assert.ok(relativeTime(new Date().toISOString()).includes('Vừa'));});
 test('AI endpoint status does not reveal key',async()=>{const res=response();await commentHandler(request(),res);assert.equal(res.statusCode,200);assert.equal(typeof res.body.configured,'boolean');assert.ok(!JSON.stringify(res.body).includes(process.env.GEMINI_API_KEY||'fake-secret-0000'));});
@@ -48,6 +48,8 @@ test('Gemini generates real reply through server, includes image bytes and threa
     assert.equal(body.contents[0].parts[1].inlineData.mimeType,'image/png');
     assert.equal(body.contents[0].parts[1].inlineData.data,'aGVsbG8=');
     assert.ok(body.contents[0].parts[0].text.includes('Mày thấy cái ly không?'));
+    assert.ok(body.contents[0].parts[0].text.includes('"hasImage":true'));
+    assert.ok(body.systemInstruction.parts[0].text.includes('BẮT BUỘC phân tích nội dung ảnh thật'));
   }finally{globalThis.fetch=oldFetch;if(oldKey)process.env.GEMINI_API_KEY=oldKey;else delete process.env.GEMINI_API_KEY;if(oldModel)process.env.GEMINI_MODEL=oldModel;else delete process.env.GEMINI_MODEL;}
 });
 test('login cookie signs owner session without leaking owner password',async()=>{

@@ -21,10 +21,15 @@ export function relativeTime(iso) {
 export const fmt = n => (n >= 1000 ? (n / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 }) + 'K' : String(n || 0));
 export const INITIAL_STATE = {
   profile: { name: 'Chủ thớt', username: '@chuthot', bio: 'Đăng gì cũng có người soi. Mà thôi, cứ đăng! 🤷', avatar: '' },
-  settings: { autoDrama: false, sounds: false, numberOfAgents: 3, roastLevel: 'medium' },
+  settings: { autoDrama: true, autoDramaVersion: 2, sounds: false, numberOfAgents: 3, roastLevel: 'medium' },
   posts: [], notifications: [],
 };
 export function normalizeState(data) {
   if (!data || !Array.isArray(data.posts) || !Array.isArray(data.notifications)) return structuredClone(INITIAL_STATE);
-  return {...INITIAL_STATE, ...data, profile:{...INITIAL_STATE.profile, ...data.profile},settings:{...INITIAL_STATE.settings, ...data.settings}};
+  const settings = {...INITIAL_STATE.settings, ...data.settings};
+  // Existing accounts created with the old opt-in-only drama setting get automatic
+  // comments by default once; from then on the owner's toggle is respected.
+  if (!data.settings?.autoDramaVersion) settings.autoDrama = true;
+  settings.autoDramaVersion = 2;
+  return {...INITIAL_STATE, ...data, profile:{...INITIAL_STATE.profile, ...data.profile}, settings};
 }

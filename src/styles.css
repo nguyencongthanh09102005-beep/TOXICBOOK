@@ -21,3 +21,8 @@
 .auth-splash small{color:#9b4d69;max-width:420px}.owner-login{display:flex;flex-direction:column;align-items:stretch;gap:12px;width:min(100%,390px);background:#fff;padding:28px;border-radius:22px;box-shadow:0 18px 60px #ae285124;text-align:left}
 .owner-login label{font-weight:750;color:#4d2632}.owner-login input{padding:15px;border-radius:12px;border:1px solid #e9c5d1;font:inherit;outline-color:#fd3b76}.owner-login button{justify-content:center}
 .save-alert{z-index:1000;position:fixed;left:50%;top:82px;transform:translateX(-50%);border:1px solid #e9a3b2;background:#fff5f7;color:#9e213c;border-radius:14px;padding:12px 15px;max-width:min(90%,650px);box-shadow:0 8px 22px #0002;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:650}.save-alert button{border:0;background:none;text-decoration:underline;cursor:pointer}
+
+/* Passive status replaces the old manual "Kích drama" button. */
+.auto-ai-status{display:inline-flex;align-items:center;gap:7px;flex:1;justify-content:center;font-size:11px;font-weight:700;color:#cf2458;background:#fff1f5;border-radius:9px;padding:10px 6px;animation:auto-ai-pulse 1.6s ease-in-out infinite}
+@keyframes auto-ai-pulse{0%,100%{opacity:1}50%{opacity:.64}}
+@media(prefers-reduced-motion:reduce){.auto-ai-status{animation:none}}

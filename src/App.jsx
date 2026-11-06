@@ -43,7 +43,7 @@ async function compressImage(file) {
     const img = new Image();
     await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = url; });
     const scale = Math.min(1, 1200 / Math.max(img.width, img.height));
-    const canvas = document.createElement('canvas');
+    let canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(img.width * scale));
     canvas.height = Math.max(1, Math.round(img.height * scale));
     const ctx = canvas.getContext('2d');

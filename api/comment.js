@@ -18,7 +18,7 @@ function imagePart(raw) {
   return {inlineData:{mimeType:`image/${match[1]}`,data:match[2]}};
 }
 export default async function handler(req,res){
-  if(req.method==='GET')return sendJSON(res,200,{configured:!!process.env.GEMINI_API_KEY,authorized:hasOwnerSession(req),model:process.env.GEMINI_MODEL||'gemini-2.5-flash',vision:true});
+  if(req.method==='GET')return sendJSON(res,200,{configured:!!process.env.GEMINI_API_KEY,authorized:hasOwnerSession(req),model:process.env.GEMINI_MODEL||'gemini-3.8-flash',vision:true});
   if(req.method!=='POST')return sendJSON(res,405,{error:'Method not allowed'});
   if(!sameOrigin(req))return sendJSON(res,403,{error:'Nguồn yêu cầu không hợp lệ.'});
   if(!hasOwnerSession(req))return sendJSON(res,401,{error:'Cần đăng nhập chủ web trước khi sử dụng Gemini.'});
@@ -44,8 +44,8 @@ export default async function handler(req,res){
     ].join('\n');
     const parts=[{text:JSON.stringify({task:mode==='seed'?'Bình luận đầu tiên xoáy vào bài đăng':'Viết phản hồi tiếp theo bám chuỗi hội thoại',postCaption:postText,conversation:cleaned})}];
     if(photo)parts.push(photo);
-    const payload={systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts}],generationConfig:{temperature:0.9,topP:0.95,maxOutputTokens:500}};
-    const model=(process.env.GEMINI_MODEL||'gemini-2.5-flash').replace(/^models\//,'');
+    const payload={systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts}],generationConfig:{maxOutputTokens:500}};
+    const model=(process.env.GEMINI_MODEL||'gemini-3.8-flash').replace(/^models\//,'');
     const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),25_000);
     let response;
     try{response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(payload),signal:controller.signal});}finally{clearTimeout(timer);}

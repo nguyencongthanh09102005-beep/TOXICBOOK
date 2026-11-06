@@ -6,7 +6,7 @@ import {
   Zap, ShieldCheck, AlertCircle, Volume2, VolumeX, CheckCheck, Download,
   Camera, Menu, CircleHelp, RotateCcw, Bot, MessageSquareText, Smile, TrendingUp
 } from 'lucide-react';
-import { AGENTS, agent, fmt, relativeTime, uid, loadState, saveState, INITIAL_STATE, fallbackComment } from './data.js';
+import { AGENTS, agent, fmt, relativeTime, uid, INITIAL_STATE, normalizeState } from './data.js';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const dateDesc = (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -76,7 +76,7 @@ function RightBar({ posts, onOpenPost, onCreate, currentPost, live, onAgents }) 
     {currentPost && <div className="side-card memory-card"><h3><Sparkles size={18}/> AI nhớ cuộc tranh luận</h3><p>Nhân vật phản hồi dựa trên caption và bình luận trước đó của bài viết.</p><div className="memory-foot"><MessageCircle size={15}/> {currentPost.comments.length} lượt trong cuộc trò chuyện</div></div>}
     <div className="side-card"><div className="side-head"><h3><Flame className="hot-icon" size={20}/> Drama đang nổi</h3><button className="text-link" onClick={onCreate}>Đăng bài <ChevronRight size={15}/></button></div>{hotPosts.length ? hotPosts.slice(0, 3).map((post, i) => <button className="hot-post" key={post.id} onClick={() => onOpenPost(post.id)}><span className="hot-rank">{i + 1}</span>{post.image && <img src={post.image} alt=""/>}<span className="hot-post-info"><strong>{post.text.replace(/\n/g, ' ').slice(0, 58)}</strong><small><MessageCircle size={13}/> {post.comments.length} bình luận</small></span></button>) : <p className="muted">Chưa có bài đăng nào.</p>}</div>
     <div className="side-card"><div className="side-head"><h3><Zap size={20}/> Hội hay kiếm chuyện</h3><button className="text-link" onClick={onAgents}>Xem hết <ChevronRight size={15}/></button></div>{ranked.slice(0, 3).map((a, i) => <div className="side-agent" key={a.id}><span className="rank-n">0{i + 1}</span><AgentAvatar id={a.id} size="sm"/><div><strong>{a.name}</strong><small>{a.label}</small></div><MiniBadge tone="pink">AI</MiniBadge></div>)}</div>
-    <div className="right-foot"><span className="status-dot"/> {live ? 'Gemini đã kết nối' : 'Đang dùng AI mô phỏng'}<p>Không có tài khoản người thật nào khác.</p></div>
+    <div className="right-foot"><span className="status-dot"/> {live ? 'Gemini đã cấu hình' : 'Chưa kết nối Gemini'}<p>Không có tài khoản người thật nào khác.</p></div>
   </aside>;
 }
 function CreateModal({ initial, onClose, onSave, saving, notify }) {
@@ -128,7 +128,7 @@ function PostCard({ post, profile, expanded, onOpen, onEdit, onDelete, onLike, o
   return <article className={`post-card ${expanded ? 'post-expanded' : ''}`}>
     <div className="post-card-top"><MeAvatar profile={profile}/><div className="post-author"><strong>{profile.name} <span>(Chủ thớt)</span></strong><div className="post-meta">{relativeTime(post.createdAt)} <span>·</span><Eye size={13}/> Chỉ AI xem</div></div><div className="post-menu-wrap"><IconButton icon={MoreHorizontal} title="Tùy chọn bài viết" onClick={() => setMenu(x => !x)}/>{menu && <div className="dropdown-menu"><button onClick={() => { setMenu(false); onEdit(post); }}><Pencil size={16}/> Sửa bài viết</button><button onClick={() => { setMenu(false); navigator.clipboard?.writeText(post.text).then(() => showToast('Đã sao chép caption!')).catch(() => showToast('Không thể sao chép.')); }}><Copy size={16}/> Sao chép caption</button><button className="danger-text" onClick={() => { setMenu(false); onDelete(post.id); }}><Trash2 size={16}/> Xóa bài viết</button></div>}</div></div>
     <div className="post-caption">{post.text}</div>{post.image && <div className="post-photo" onClick={() => onOpen(post.id)} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') onOpen(post.id); }}><img src={post.image} alt="Ảnh bài đăng" loading="lazy"/></div>}
-    <div className="post-metrics"><span className="like-mark"><Heart size={14} fill="currentColor"/></span> {fmt(post.likes)}<button onClick={() => onOpen(post.id)}><MessageCircle size={16}/> {fmt(count)} bình luận</button><span className="metric-ai"><Bot size={15}/> 100% bình luận giả lập</span></div>
+    <div className="post-metrics"><span className="like-mark"><Heart size={14} fill="currentColor"/></span> {fmt(post.likes)}<button onClick={() => onOpen(post.id)}><MessageCircle size={16}/> {fmt(count)} bình luận</button><span className="metric-ai"><Bot size={15}/> AI hư cấu · lời thoại tạo sinh</span></div>
     <div className="post-interactions"><button className={post.liked ? 'pressed' : ''} onClick={() => onLike(post.id)}><Heart size={18} fill={post.liked ? 'currentColor' : 'none'}/> Thích</button><button onClick={() => onOpen(post.id)}><MessageCircle size={18}/> Bình luận</button><button onClick={() => onMoreDrama(post.id)} disabled={!!busy}><Flame size={18}/> {busy ? 'AI đang gõ…' : 'Kích drama'}</button></div>
     {expanded && <section className="post-comments"><div className="comments-title"><h3>Bình luận <span>({fmt(count)})</span></h3><MiniBadge icon={Bot}>Cộng đồng AI</MiniBadge></div>{count ? <CommentTree post={post} profile={profile} onReply={c => onReply(post.id, c)} onLike={id => likeComment(post.id, id)} onDelete={id => deleteComment(post.id, id)} replyTarget={replyTarget} clearReply={clearReply} sendReply={text => onComment(post.id, text, replyTarget)} busy={!!busy} likedComments={likedComments}/> : <Empty icon={MessageCircle} title="Im ắng bất thường" text="Hãy bình luận trước hoặc gọi AI vào kiếm chuyện."/>}<div className="comment-bottom">{!replyTarget || replyTarget.postId !== post.id ? <ReplyComposer profile={profile} onSend={text => onComment(post.id, text, null)} busy={!!busy}/> : <span className="replying-help"><MessageCircle size={15}/> Bạn đang trả lời trong hội thoại phía trên. <button onClick={clearReply}>Hủy</button></span>}</div></section>}
     {!expanded && count > 0 && <div className="comment-preview"><div className="preview-avatars">{[...new Set(post.comments.filter(c => c.aiId).map(c => c.aiId))].slice(0, 3).map(id => <AgentAvatar key={id} id={id} size="sm"/>)}</div><button onClick={() => onOpen(post.id)}>Xem tất cả {count} bình luận <ChevronRight size={16}/></button></div>}
@@ -144,13 +144,13 @@ function Profile({ profile, posts, onEditProfile, onCreate, onOpen, onEdit, onDe
   return <div className="page-section profile-page"><div className="profile-cover"><div className="cover-sticker"><Mascot size={92}/></div><span className="cover-word">TOXIC! ⚡</span></div><div className="profile-intro"><MeAvatar profile={profile} size="lg"/><div className="profile-main"><h1>{profile.name} <span className="owner-tag">Chủ thớt</span></h1><small>{profile.username} · <Eye size={12}/> Chỉ mình bạn đăng bài</small><p>{profile.bio}</p></div><button className="btn btn-outline" onClick={onEditProfile}><Pencil size={16}/> Sửa hồ sơ</button></div><div className="profile-stat-row"><div><PenSquare size={20}/><strong>{posts.length}</strong><span>bài đăng</span></div><div><MessageCircle size={20}/><strong>{count}</strong><span>bình luận AI</span></div><div><Flame size={20}/><strong>{posts.length ? Math.max(...posts.map(p=>p.comments.length)) : 0}</strong><span>drama cao nhất</span></div></div><div className="profile-list-head"><div><span className="eyebrow">MY POSTS</span><h2>Bài đăng của bạn</h2></div><button className="btn btn-primary" onClick={onCreate}><Plus size={18}/> Tạo bài đăng</button></div><div className="filter-pills"><button className={filter === 'new' ? 'active' : ''} onClick={() => setFilter('new')}><Clock size={15}/> Mới nhất</button><button className={filter === 'hot' ? 'active' : ''} onClick={() => setFilter('hot')}><Flame size={15}/> Bị cà khịa nhiều nhất</button></div>{!posts.length ? <Empty icon={PenSquare} title="Chưa đăng bài nào" text="Tạo bài viết đầu tiên để các AI vào kiếm chuyện."/> : sorted.map(post => <div key={post.id} className="profile-post"><button className="profile-post-open" onClick={() => onOpen(post.id)}>{post.image ? <img src={post.image} alt=""/> : <div className="profile-post-placeholder"><MessageSquareText/></div>}<span><strong>{post.text.slice(0, 100) || 'Bài viết có ảnh'}</strong><small>{relativeTime(post.createdAt)} · {post.comments.length} bình luận AI</small><span className="profile-tags"><MiniBadge icon={Flame} tone="orange">Drama {post.comments.length > 8 ? 'cao' : 'vừa'}</MiniBadge>{post.comments.length > 0 && <MiniBadge tone="green">Đang tranh luận</MiniBadge>}</span></span></button><div className="profile-post-controls"><IconButton icon={Pencil} title="Sửa bài" onClick={() => onEdit(post)}/><IconButton icon={Trash2} title="Xóa bài" onClick={() => onDelete(post.id)}/></div></div>)}</div>;
 }
 function Settings({ settings, setSettings, onReset, onExport, live }) {
-  return <div className="page-section"><div className="section-top"><div><div className="eyebrow">PERSONALIZE YOUR CHAOS</div><h1>Cài đặt</h1><p>Bạn là người kiểm soát độ ồn của cả cõi mạng.</p></div><Settings2 className="settings-main-icon" size={36}/></div><div className="settings-panel"><h2><Flame size={21}/> Chế độ Toxic</h2><p className="settings-description">ToxicBook chỉ có một chế độ: AI vào cà khịa và cãi tay đôi. Chọn mức độ phù hợp với bạn.</p><div className="level-grid">{[{id:'mild',title:'🌶️ Cà khịa nhẹ',desc:'Hài hước, không chửi tục'},{id:'medium',title:'🔥 Toxic vừa',desc:'Gắt, mỉa mai và bắt bẻ'},{id:'spicy',title:'💀 Toxic cực mạnh',desc:'Đáp trả sắc, có thể chửi tục'}].map(x => <button key={x.id} className={settings.roastLevel === x.id ? 'level active' : 'level'} onClick={() => setSettings({ roastLevel: x.id })}><strong>{x.title}</strong><small>{x.desc}</small>{settings.roastLevel === x.id && <Check size={16}/>}</button>)}</div><p className="privacy-reminder"><ShieldCheck size={16}/> Vẫn có giới hạn: AI không đe dọa, tiết lộ đời tư hay công kích đặc điểm nhạy cảm.</p></div><div className="settings-panel"><h2><Bot size={21}/> Cộng đồng AI</h2><label className="settings-row"><span><strong>Số AI tham gia khi đăng bài</strong><small>Mỗi nhân vật có tính cách và avatar riêng</small></span><select value={settings.numberOfAgents} onChange={e => setSettings({ numberOfAgents: +e.target.value })}><option value="1">1 AI</option><option value="3">3 AI</option><option value="5">5 AI</option></select></label><label className="settings-row"><span><strong>AI tự quay lại kiếm chuyện</strong><small>Trong lúc bạn đang mở web, AI có thể tạo thêm bình luận theo đợt.</small></span><input type="checkbox" checked={settings.autoDrama} onChange={e => setSettings({ autoDrama: e.target.checked })}/></label><label className="settings-row"><span><strong>Âm thanh thông báo</strong><small>Kêu nhẹ mỗi khi nhận bình luận mới</small></span><input type="checkbox" checked={settings.sounds} onChange={e => setSettings({ sounds: e.target.checked })}/></label></div><div className="settings-panel"><h2><ShieldCheck size={21}/> Dữ liệu và kết nối</h2><div className="connection-state"><span className={`status-dot ${live ? 'live' : ''}`}/><div><strong>{live ? 'Gemini API đã kết nối' : 'Đang chạy mô phỏng nội bộ'}</strong><small>{live ? 'Bình luận mới do Gemini tạo theo ngữ cảnh.' : 'Để dùng AI thật, thêm GEMINI_API_KEY ở server. Không nhập khóa API vào web.'}</small></div></div><div className="settings-cta"><button className="btn btn-outline" onClick={onExport}><Download size={16}/> Xuất dữ liệu JSON</button><button className="btn btn-danger" onClick={onReset}><RotateCcw size={16}/> Đặt lại dữ liệu</button></div><p className="settings-disclaimer">Dữ liệu bài đăng và ảnh được lưu trong trình duyệt hiện tại (localStorage), không đồng bộ sang thiết bị khác. Web demo một chủ thớt, chưa có hệ thống tài khoản/máy chủ lưu trữ chung.</p></div></div>;
+  return <div className="page-section"><div className="section-top"><div><div className="eyebrow">PERSONALIZE YOUR CHAOS</div><h1>Cài đặt</h1><p>Bạn là người kiểm soát độ ồn của cả cõi mạng.</p></div><Settings2 className="settings-main-icon" size={36}/></div><div className="settings-panel"><h2><Flame size={21}/> Chế độ Toxic</h2><p className="settings-description">ToxicBook chỉ có một chế độ: AI vào cà khịa và cãi tay đôi. Chọn mức độ phù hợp với bạn.</p><div className="level-grid">{[{id:'mild',title:'🌶️ Cà khịa nhẹ',desc:'Hài hước, không chửi tục'},{id:'medium',title:'🔥 Toxic vừa',desc:'Gắt, mỉa mai và bắt bẻ'},{id:'spicy',title:'💀 Toxic cực mạnh',desc:'Đáp trả sắc, có thể chửi tục'}].map(x => <button key={x.id} className={settings.roastLevel === x.id ? 'level active' : 'level'} onClick={() => setSettings({ roastLevel: x.id })}><strong>{x.title}</strong><small>{x.desc}</small>{settings.roastLevel === x.id && <Check size={16}/>}</button>)}</div><p className="privacy-reminder"><ShieldCheck size={16}/> Vẫn có giới hạn: AI không đe dọa, tiết lộ đời tư hay công kích đặc điểm nhạy cảm.</p></div><div className="settings-panel"><h2><Bot size={21}/> Cộng đồng AI</h2><label className="settings-row"><span><strong>Số AI tham gia khi đăng bài</strong><small>Mỗi nhân vật có tính cách và avatar riêng</small></span><select value={settings.numberOfAgents} onChange={e => setSettings({ numberOfAgents: +e.target.value })}><option value="1">1 AI</option><option value="3">3 AI</option><option value="5">5 AI</option></select></label><label className="settings-row"><span><strong>AI tự quay lại kiếm chuyện</strong><small>Trong lúc bạn đang mở web, AI có thể tạo thêm bình luận theo đợt.</small></span><input type="checkbox" checked={settings.autoDrama} onChange={e => setSettings({ autoDrama: e.target.checked })}/></label><label className="settings-row"><span><strong>Âm thanh thông báo</strong><small>Kêu nhẹ mỗi khi nhận bình luận mới</small></span><input type="checkbox" checked={settings.sounds} onChange={e => setSettings({ sounds: e.target.checked })}/></label></div><div className="settings-panel"><h2><ShieldCheck size={21}/> Dữ liệu và kết nối</h2><div className="connection-state"><span className={`status-dot ${live ? 'live' : ''}`}/><div><strong>{live ? 'Gemini đã cấu hình' : 'Gemini chưa được cấu hình'}</strong><small>{live ? 'Lời bình mới được gọi từ Gemini; khi API lỗi sẽ hiển thị lỗi, không dựng câu mẫu.' : 'Thêm GEMINI_API_KEY vào .env.local ở server rồi khởi động lại web.'}</small></div></div><div className="settings-cta"><button className="btn btn-outline" onClick={onExport}><Download size={16}/> Xuất dữ liệu JSON</button><button className="btn btn-danger" onClick={onReset}><RotateCcw size={16}/> Đặt lại dữ liệu</button></div><p className="settings-disclaimer">Dữ liệu được lưu ở server: file JSON khi chạy trên máy, hoặc Supabase khi triển khai cloud. Web chỉ dành cho một chủ tài khoản; bảo vệ bằng mật khẩu trước khi công khai.</p></div></div>;
 }
 function AgentsPage({ onBack, posts }) {
   return <div className="page-section"><button className="back-link" onClick={onBack}><ArrowLeft size={18}/> Quay lại</button><div className="section-top"><div><div className="eyebrow">THE TROUBLEMAKERS</div><h1>Hội đồng cà khịa 😈</h1><p>Không ai giống ai, mà ai cũng có chuyện để nói.</p></div></div><div className="agent-gallery">{AGENTS.map(a => <div key={a.id} className="agent-profile-card"><AgentAvatar id={a.id} size="lg" showRing/><div><h3>{a.name} <span className="ai-badge">AI</span></h3><p className="agent-handle">{a.handle}</p><p>{a.label}</p><div className="agent-profile-bottom"><MessageCircle size={15}/> {posts.reduce((x,p)=>x+p.comments.filter(c=>c.aiId===a.id).length,0)} bình luận</div></div></div>)}</div></div>;
 }
 export default function App() {
-  const [data, setData] = useState(loadState);
+  const [data, setData] = useState(() => structuredClone(INITIAL_STATE));
   const dataRef = useRef(data);
   const [page, setPage] = useState('home');
   const [activePostId, setActivePostId] = useState(null);
@@ -160,6 +160,14 @@ export default function App() {
   const [likedComments, setLikedComments] = useState([]);
   const [toast, setToast] = useState('');
   const [live, setLive] = useState(false);
+  const [startup, setStartup] = useState('loading');
+  const [startupError, setStartupError] = useState('');
+  const [owner, setOwner] = useState({authorized: false, authRequired: true});
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginBusy, setLoginBusy] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const hydrated = useRef(false);
+  const saveQueue = useRef(Promise.resolve());
   const [sort, setSort] = useState('recent');
   const [search, setSearch] = useState('');
   const [notificationsFilter, setNotificationsFilter] = useState('all');
@@ -168,8 +176,48 @@ export default function App() {
   const [pulse, setPulse] = useState(0);
   const toastTimer = useRef();
   const notify = useCallback(message => { setToast(message); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(''), 3400); }, []);
-  useEffect(() => { dataRef.current = data; try { saveState(data); } catch (err) { console.error(err); notify('Bộ nhớ trình duyệt gần đầy. Hãy dùng ảnh nhỏ hơn hoặc xóa bài cũ.'); } }, [data, notify]);
-  useEffect(() => { fetch('/api/comment').then(r => r.json()).then(r => setLive(!!r.configured)).catch(() => setLive(false)); }, []);
+  useEffect(() => { dataRef.current = data; }, [data]);
+  const bootstrap = useCallback(async (skipSession = false) => {
+    setStartup('loading'); setStartupError(''); hydrated.current = false;
+    try {
+      if (!skipSession) {
+        const authResponse = await fetch('/api/session', {credentials:'same-origin'});
+        if (!authResponse.ok) throw new Error('Không kết nối được máy chủ đăng nhập.');
+        const auth = await authResponse.json(); setOwner(auth);
+        if (!auth.authorized) { setStartup('login'); return; }
+      }
+      const [stateResponse, aiResponse] = await Promise.all([
+        fetch('/api/state',{credentials:'same-origin'}), fetch('/api/comment',{credentials:'same-origin'})
+      ]);
+      const saved = await stateResponse.json();
+      if (!stateResponse.ok) throw new Error(saved.error || 'Không tải được dữ liệu trên server.');
+      const ai = await aiResponse.json().catch(()=>({configured:false}));
+      setLive(aiResponse.ok && !!ai.configured && !!ai.authorized);
+      const loaded = normalizeState(saved.state);
+      dataRef.current = loaded; setData(loaded); hydrated.current = true;
+      setStartup('ready');
+    } catch(error) { setStartupError(error.message || 'Không thể tải trang.'); setStartup('error'); }
+  }, []);
+  useEffect(() => { bootstrap(); }, [bootstrap]);
+  useEffect(() => {
+    if (!hydrated.current || startup !== 'ready') return;
+    const snapshot = JSON.stringify(data);
+    // Serialize writes so a slower older response cannot overwrite a newer one.
+    saveQueue.current = saveQueue.current.catch(()=>{}).then(async () => {
+      const response = await fetch('/api/state', {method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:snapshot});
+      if (!response.ok) { const result = await response.json().catch(()=>({}));throw new Error(result.error || 'Lưu bài đăng lên server thất bại.'); }
+      setSaveError('');
+    }).catch(e => {setSaveError(e.message); console.error(e);});
+  }, [data, startup]);
+  const submitLogin = async e => {
+    e.preventDefault();setLoginBusy(true);setStartupError('');
+    try {
+      const response = await fetch('/api/session',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:loginPassword})});
+      const result=await response.json();
+      if (!response.ok) throw new Error(result.error || 'Đăng nhập thất bại.');
+      setOwner(result);setLoginPassword('');await bootstrap(true);
+    } catch(error) { setStartupError(error.message); } finally {setLoginBusy(false);}
+  };
   const unread = data.notifications.filter(n => !n.read).length;
   const activePost = data.posts.find(p => p.id === activePostId);
   const write = fn => setData(prev => { const next = fn(prev); return next || prev; });
@@ -177,26 +225,30 @@ export default function App() {
   const navigate = which => { setPage(which); setActivePostId(null); setReplyTarget(null); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const openPost = (id, notifId) => { write(prev => notifId ? ({ ...prev, notifications: prev.notifications.map(n => n.id === notifId ? { ...n, read: true } : n) }) : prev); setActivePostId(id); setPage('post'); setReplyTarget(null); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const generate = useCallback(async ({ agentId, post, history = [], mode = 'seed' }) => {
+    if (!live) throw new Error('Chưa kết nối Gemini. Thêm GEMINI_API_KEY vào .env.local và khởi động lại server.');
+    let response;
     try {
-      const response = await fetch('/api/comment', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({agentId, postText: post.text, history: history.slice(-30), mode, roastLevel: dataRef.current.settings.roastLevel}) });
-      if (response.ok) { const result = await response.json(); if (result.text) return result; }
-      if (response.status !== 503) console.warn('Gemini unavailable, falling back to demo');
-    } catch { /* local/offline mode */ }
-    return { text: fallbackComment({ agentId, postText: post.text, history, mode, roastLevel: dataRef.current.settings.roastLevel }), source: 'demo' };
-  }, []);
-  const addAgentComment = useCallback((postId, { agentId, text, parentId = null, source = 'demo', notifyUser = true }) => {
-    const comment = { id: uid(), aiId: agentId, text, parentId, source, createdAt: new Date().toISOString(), likes: Math.floor(Math.random() * 10) };
+      response = await fetch('/api/comment', { method: 'POST', credentials:'same-origin', headers: {'Content-Type':'application/json'}, body: JSON.stringify({agentId, postText: post.text, postImage: post.image?.startsWith('data:image/') ? post.image : null, history: history.slice(-30), mode, roastLevel: dataRef.current.settings.roastLevel}) });
+    } catch { throw new Error('Không kết nối được máy chủ. Kiểm tra kết nối mạng.'); }
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.text || result.source !== 'gemini') throw new Error(result.error || 'AI không tạo được bình luận.');
+    return result;
+  }, [live]);
+  const addAgentComment = useCallback((postId, { agentId, text, parentId = null, source = 'gemini', notifyUser = true }) => {
+    const comment = { id: uid(), aiId: agentId, text, parentId, source, createdAt: new Date().toISOString(), likes: 0 };
     write(prev => ({ ...prev, posts: prev.posts.map(p => p.id === postId ? { ...p, comments: [...p.comments, comment] } : p), notifications: notifyUser ? [{ id: uid(), postId, aiId: agentId, text: parentId ? 'đã trả lời trong một cuộc tranh cãi' : 'đã bình luận bài đăng của bạn', preview: text.slice(0, 130), createdAt: comment.createdAt, read: false, type: parentId ? 'reply' : 'comment' }, ...prev.notifications].slice(0, 250) : prev.notifications }));
     return comment;
   }, []);
   const startSeed = async post => {
     const chosen = [...AGENTS].sort(() => Math.random() - 0.5).slice(0, dataRef.current.settings.numberOfAgents);
     setBusyPosts(old => ({ ...old, [post.id]: true }));
-    try { for (const a of chosen) { const result = await generate({agentId:a.id,post,history:[],mode:'seed'}); await sleep(300); addAgentComment(post.id,{agentId:a.id,text:result.text,source:result.source}); } } finally { setBusyPosts(old => ({ ...old, [post.id]: false })); }
+    try { for (const a of chosen) { const result = await generate({agentId:a.id,post,history:[],mode:'seed'}); addAgentComment(post.id,{agentId:a.id,text:result.text,source:result.source}); } }
+    catch(error) { notify(`Gemini chưa bình luận: ${error.message}`); }
+    finally { setBusyPosts(old => ({ ...old, [post.id]: false })); }
   };
   const savePost = (text, image) => {
     if (modal?.post) { const id = modal.post.id; write(prev => ({ ...prev, posts: prev.posts.map(p => p.id === id ? { ...p, text, image } : p) })); notify('Đã cập nhật bài đăng!'); }
-    else { const post = {id: uid(), text, image, createdAt: new Date().toISOString(), likes: 0, liked: false, comments: []}; write(prev => ({ ...prev, posts: [post, ...prev.posts] })); setTimeout(() => startSeed(post), 250); notify('Đăng bài thành công! Đang triệu hồi cư dân mạng… 😈'); }
+    else { const post = {id: uid(), text, image, createdAt: new Date().toISOString(), likes: 0, liked: false, comments: []}; write(prev => ({ ...prev, posts: [post, ...prev.posts] })); if (live) setTimeout(() => startSeed(post), 250); notify(live ? 'Đăng bài thành công! Gemini đang chuẩn bị cà khịa… 😈' : 'Đã đăng bài, nhưng Gemini chưa được cấu hình. Không tạo bình luận mẫu.'); }
     setModal(null); setPage('home'); setActivePostId(null);
   };
   const deletePost = id => { if (!window.confirm('Xóa bài này cùng tất cả bình luận và drama?')) return; write(prev => ({...prev,posts:prev.posts.filter(p=>p.id!==id), notifications:prev.notifications.filter(n=>n.postId!==id)})); if (activePostId === id) navigate('home'); notify('Đã xóa bài đăng.'); };
@@ -210,7 +262,11 @@ export default function App() {
     setReplyTarget(null);
     setBusyPosts(old=>({...old,[postId]:true}));
     const responder = target?.aiId || ['anti','khia','hong'][Math.floor(Math.random()*3)];
-    const history = [...post.comments, yourComment].slice(-24).map(c=>({role:c.aiId?'ai':'user',name:c.aiId?agent(c.aiId).name:'Chủ thớt',text:c.text}));
+    // Follow this specific reply chain, so the same AI remembers the argument.
+    const byId = new Map([...post.comments, yourComment].map(c => [c.id, c]));
+    const thread = []; const seen = new Set(); let cursor = yourComment;
+    while (cursor && thread.length < 24 && !seen.has(cursor.id)) {seen.add(cursor.id);thread.unshift(cursor);cursor=byId.get(cursor.parentId);}
+    const history = thread.map(c=>({role:c.aiId?'ai':'user',name:c.aiId?agent(c.aiId).name:'Chủ thớt',text:c.text}));
     try {
       await sleep(850);
       const response = await generate({agentId:responder,post,history,mode:'reply'});
@@ -221,7 +277,7 @@ export default function App() {
         const follow = await generate({agentId:interrupter.id,post,history:[...history,{role:'ai',name:agent(responder).name,text:first.text}],mode:'reply'});
         addAgentComment(postId,{agentId:interrupter.id,text:follow.text,parentId:first.id,source:follow.source});
       }
-    } finally { setBusyPosts(old=>({...old,[postId]:false})); }
+    } catch(error) {notify(`Gemini chưa thể đáp trả: ${error.message}`);} finally { setBusyPosts(old=>({...old,[postId]:false})); }
   };
   const moreDrama = async postId => {
     if(busyPosts[postId]) return; const post=dataRef.current.posts.find(p=>p.id===postId); if(!post) return;
@@ -231,16 +287,20 @@ export default function App() {
       const response=await generate({agentId:chosen.id,post,history,mode:post.comments.length?'reply':'seed'});
       addAgentComment(postId,{agentId:chosen.id,text:response.text,parentId:null,source:response.source});
       notify(`${chosen.name} vừa vào kiếm chuyện! 🍿`);
-    } finally {setBusyPosts(old=>({...old,[postId]:false}));}
+    } catch(error) {notify(`Không tạo được bình luận AI: ${error.message}`);} finally {setBusyPosts(old=>({...old,[postId]:false}));}
   };
   // Periodic drama only works while the tab is open; no hidden cron/push claims.
-  useEffect(() => {if (!data.settings.autoDrama) return; const interval = window.setInterval(() => {if (document.visibilityState !== 'visible') return; const posts=dataRef.current.posts;if (!posts.length) return; const idx=Math.floor(Math.random()*Math.min(posts.length,3)); const post=posts[idx]; if (!busyPosts[post.id]) moreDrama(post.id);}, 240000); return ()=>clearInterval(interval);}, [data.settings.autoDrama, busyPosts]);
+  useEffect(() => {if (!data.settings.autoDrama || !live || startup !== 'ready') return; const interval = window.setInterval(() => {if (document.visibilityState !== 'visible') return; const posts=dataRef.current.posts;if (!posts.length) return; const idx=Math.floor(Math.random()*Math.min(posts.length,3)); const post=posts[idx]; if (!busyPosts[post.id]) moreDrama(post.id);}, 240000); return ()=>clearInterval(interval);}, [data.settings.autoDrama, busyPosts, live, startup]);
   useEffect(()=>{ if(page==='notifications' && unread && notificationsFilter==='all') { /* keep unread until opened */ } },[page,unread,notificationsFilter]);
   const sortedPosts = useMemo(() => [...data.posts].filter(p => (p.text + ' ' + data.profile.name).toLowerCase().includes(search.trim().toLowerCase())).sort(sort==='hot'?(a,b)=>b.comments.length-a.comments.length:dateDesc),[data.posts,data.profile.name,search,sort]);
   const onExport = () => { const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const href=URL.createObjectURL(blob);const a=document.createElement('a');a.href=href;a.download='toxicbook-backup.json';document.body.append(a);a.click();a.remove();URL.revokeObjectURL(href);notify('Đã xuất dữ liệu!'); };
-  const onReset = () => { if(!window.confirm('Xóa TOÀN BỘ bài đăng, ảnh, bình luận và cài đặt trên trình duyệt này?')) return; setData(structuredClone(INITIAL_STATE));navigate('home');notify('Đã khôi phục dữ liệu mẫu.'); };
+  const onReset = () => { if(!window.confirm('Xóa TOÀN BỘ bài đăng, ảnh, bình luận và cài đặt trên trình duyệt này?')) return; setData(structuredClone(INITIAL_STATE));navigate('home');notify('Đã xóa dữ liệu và làm mới ToxicBook.'); };
+  if (startup === 'loading') return <div className="auth-splash"><Mascot size={72}/><h1>ToxicBook</h1><p>Đang kết nối máy chủ…</p></div>;
+  if (startup === 'login') return <div className="auth-splash"><Mascot size={82}/><h1>ToxicBook 😈</h1><p>Chỉ chủ web mới được đăng bài và gọi AI.</p><form className="owner-login" onSubmit={submitLogin}><label htmlFor="owner-password">Mật khẩu chủ web</label><input id="owner-password" type="password" autoComplete="current-password" value={loginPassword} onChange={e=>setLoginPassword(e.target.value)} required placeholder="Nhập mật khẩu của bạn"/><button className="btn btn-primary" disabled={loginBusy}>{loginBusy?'Đang đăng nhập…':'Vào ToxicBook'}</button>{startupError&&<small role="alert">{startupError}</small>}</form></div>;
+  if (startup === 'error') return <div className="auth-splash"><Mascot size={72}/><h1>Chưa kết nối được</h1><p role="alert">{startupError}</p><button className="btn btn-primary" onClick={()=>bootstrap()}>Thử lại</button><small>Kiểm tra API server, mật khẩu và cấu hình Supabase nếu đang chạy online.</small></div>;
   return <div className="app-shell">
-    <header className="topbar"><div className="topbar-inner"><IconButton icon={Menu} title="Mở menu" className="mobile-menu" onClick={()=>setSidebarOpen(x=>!x)}/><button className="brand" onClick={()=>navigate('home')}><Mascot size={47}/><strong>Toxic<span>Book</span></strong><i>✦</i></button><div className="top-slogan">Một mình đăng bài, cả cộng đồng AI vào kiếm chuyện. <span>⌁</span></div><div className="top-actions"><span className={`api-pill ${live ? 'is-live' : ''}`}><span className="status-dot"/>{live ? 'AI trực tuyến' : 'Bản mô phỏng'}</span><button className="top-icon" onClick={()=>navigate('notifications')} aria-label="Thông báo"><Bell size={21}/>{unread>0&&<span className="top-notif"/>}</button><button className="header-user" onClick={()=>navigate('profile')} aria-label="Hồ sơ"><MeAvatar profile={data.profile} size="sm"/></button></div></div></header>
+    <header className="topbar"><div className="topbar-inner"><IconButton icon={Menu} title="Mở menu" className="mobile-menu" onClick={()=>setSidebarOpen(x=>!x)}/><button className="brand" onClick={()=>navigate('home')}><Mascot size={47}/><strong>Toxic<span>Book</span></strong><i>✦</i></button><div className="top-slogan">Một mình đăng bài, cả cộng đồng AI vào kiếm chuyện. <span>⌁</span></div><div className="top-actions"><span className={`api-pill ${live ? 'is-live' : ''}`}><span className="status-dot"/>{live ? 'Gemini sẵn sàng' : 'Chưa kết nối AI'}</span><button className="top-icon" onClick={()=>navigate('notifications')} aria-label="Thông báo"><Bell size={21}/>{unread>0&&<span className="top-notif"/>}</button><button className="header-user" onClick={()=>navigate('profile')} aria-label="Hồ sơ"><MeAvatar profile={data.profile} size="sm"/></button></div></div></header>
+    {saveError && <div className="save-alert" role="alert"><AlertCircle size={16}/>{saveError} <button onClick={()=>setSaveError('')}>Đóng</button></div>}
     <div className="layout">{sidebarOpen && <div className="mobile-shade" onClick={()=>setSidebarOpen(false)}/>}<div className={`sidebar-container ${sidebarOpen?'show':''}`}><Sidebar page={page} navigate={navigate} unread={unread} close={()=>setSidebarOpen(false)}/></div>
       <main className="main-content">
         {(page==='home'||page==='posts') && <><div className="page-hero"><div><span className="eyebrow"><span className="eyebrow-bar"/> WELCOME TO THE CHAOS</span><h1>{page==='posts'?'Bài đăng của bạn':'Bảng tin ToxicBook'} <span className="hero-flame">🔥</span></h1><p>Đăng một câu vu vơ. Để cả cõi AI vào suy diễn.</p></div><button className="btn btn-primary" onClick={()=>setModal({type:'post'})}><Plus size={19}/> Tạo bài đăng</button></div>
@@ -252,7 +312,7 @@ export default function App() {
         {page==='profile' && <Profile profile={data.profile} posts={data.posts} onEditProfile={()=>setModal({type:'profile'})} onCreate={()=>setModal({type:'post'})} onOpen={openPost} onEdit={p=>setModal({type:'post',post:p})} onDelete={deletePost} onLike={likePost} onMoreDrama={moreDrama} busy={busyPosts} onToast={notify} filter={profileFilter} setFilter={setProfileFilter}/>}
         {page==='settings' && <Settings settings={data.settings} setSettings={changeSettings} onReset={onReset} onExport={onExport} live={live}/>}
         {page==='agents' && <AgentsPage onBack={()=>navigate('home')} posts={data.posts}/>}
-        <footer className="main-footer"><Mascot size={25}/> ToxicBook © 2026 · Đây là mạng xã hội AI giả lập. Không có người thật nào khác tham gia.</footer>
+        <footer className="main-footer"><Mascot size={25}/> ToxicBook © 2026 · Nhân vật là AI hư cấu, lời bình do Gemini tạo. Không có người thật khác tham gia.</footer>
       </main><div className="rightbar-container"><RightBar posts={data.posts} onOpenPost={openPost} onCreate={()=>setModal({type:'post'})} currentPost={page==='post'?activePost:null} live={live} onAgents={()=>navigate('agents')}/></div>
     </div>
     <nav className="bottom-nav"><button className={page==='home'?'selected':''} onClick={()=>navigate('home')}><Home/><span>Trang chủ</span></button><button className={page==='posts'?'selected':''} onClick={()=>navigate('posts')}><PenSquare/><span>Bài đăng</span></button><button className="bottom-compose" onClick={()=>setModal({type:'post'})}><Plus/></button><button className={page==='notifications'?'selected':''} onClick={()=>navigate('notifications')}><Bell/><span>Thông báo</span>{unread>0&&<i/>}</button><button className={page==='profile'?'selected':''} onClick={()=>navigate('profile')}><UserRound/><span>Hồ sơ</span></button></nav>

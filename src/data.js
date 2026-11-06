@@ -21,7 +21,7 @@ export function relativeTime(iso) {
 export const fmt = n => (n >= 1000 ? (n / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 }) + 'K' : String(n || 0));
 export const INITIAL_STATE = {
   profile: { name: 'Chủ thớt', username: '@chuthot', bio: 'Đăng gì cũng có người soi. Mà thôi, cứ đăng! 🤷', avatar: '' },
-  settings: { autoDrama: true, autoDramaVersion: 2, sounds: false, numberOfAgents: 3, roastLevel: 'medium' },
+  settings: { autoDrama: true, autoDramaVersion: 2, sounds: false, numberOfAgents: 3, roastLevel: 'medium', targetComments: 100, batchSize: 10 },
   posts: [], notifications: [],
 };
 export function normalizeState(data) {
@@ -31,5 +31,7 @@ export function normalizeState(data) {
   // comments by default once; from then on the owner's toggle is respected.
   if (!data.settings?.autoDramaVersion) settings.autoDrama = true;
   settings.autoDramaVersion = 2;
+  if (![25,50,100,200].includes(settings.targetComments)) settings.targetComments=100;
+  settings.batchSize=10;
   return {...INITIAL_STATE, ...data, profile:{...INITIAL_STATE.profile, ...data.profile}, settings};
 }

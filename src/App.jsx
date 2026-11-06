@@ -150,8 +150,8 @@ function PostCard({ post, profile, expanded, onOpen, onEdit, onDelete, onLike, o
     <div className="post-interactions"><button className={post.liked ? 'pressed' : ''} onClick={() => onLike(post.id)}><Heart size={18} fill={post.liked ? 'currentColor' : 'none'}/> Thích</button><button onClick={() => onOpen(post.id)}><MessageCircle size={18}/> Bình luận</button>{busy && <span className="auto-ai-status"><Bot size={18}/> {post.image ? 'AI đang soi ảnh và bình luận…' : 'AI đang viết bình luận…'}</span>}</div>
     {aiJob && (aiJob.status === 'loading' || aiJob.status === 'error' || aiJob.status === 'partial') && <div className={`ai-progress ai-progress-${aiJob.status}`} role="status">
       {aiJob.status === 'loading' ? <><Bot size={17}/><span>Gemini đang tạo bình luận {aiJob.current || 1}/{aiJob.total || 3}{post.image ? ' từ ảnh thật' : ''}… Mỗi lượt có thể mất thời gian.</span></> :
-        <><AlertCircle size={17}/><span>{aiJob.posted ? `Đã có ${aiJob.posted} bình luận, nhưng ${aiJob.failed} lượt Gemini lỗi: ${aiJob.error}` : `Chưa tạo được bình luận AI: ${aiJob.error}`}</span>
-          {!aiJob.posted && <button type="button" onClick={() => onRetryAI(post.id)}>Thử lại</button>}</>}
+        <><AlertCircle size={17}/><span>{aiJob.posted ? `Đã có ${aiJob.posted} bình luận. Còn ${aiJob.remaining ?? '?'} AI chưa bình luận: ${aiJob.error}` : `Chưa tạo được bình luận AI: ${aiJob.error}`}</span>
+          {!busy && <button type="button" onClick={() => onRetryAI(post.id)}>{aiJob.posted ? 'Tạo tiếp bình luận' : 'Thử lại'}</button>}</>}
     </div>}
     {expanded && <section className="post-comments"><div className="comments-title"><h3>Bình luận <span>({fmt(count)})</span></h3><MiniBadge icon={Bot}>Cộng đồng AI</MiniBadge></div>{count ? <CommentTree post={post} profile={profile} onReply={c => onReply(post.id, c)} onLike={id => likeComment(post.id, id)} onDelete={id => deleteComment(post.id, id)} replyTarget={replyTarget} clearReply={clearReply} sendReply={text => onComment(post.id, text, replyTarget)} busy={!!busy} likedComments={likedComments}/> : <Empty icon={MessageCircle} title={busy ? 'AI đang xem bài đăng…' : 'Chưa có bình luận'} text={busy ? 'AI đang phân tích ảnh và caption để tự cà khịa, không cần bấm nút.' : 'Gemini sẽ tự bình luận sau khi đăng. Nếu chưa xuất hiện, kiểm tra thông báo lỗi hoặc kết nối Gemini.'}/>}<div className="comment-bottom">{!replyTarget || replyTarget.postId !== post.id ? <ReplyComposer profile={profile} onSend={text => onComment(post.id, text, null)} busy={!!busy}/> : <span className="replying-help"><MessageCircle size={15}/> Bạn đang trả lời trong hội thoại phía trên. <button onClick={clearReply}>Hủy</button></span>}</div></section>}
     {!expanded && count > 0 && <div className="comment-preview"><div className="preview-avatars">{[...new Set(post.comments.filter(c => c.aiId).map(c => c.aiId))].slice(0, 3).map(id => <AgentAvatar key={id} id={id} size="sm"/>)}</div><button onClick={() => onOpen(post.id)}>Xem tất cả {count} bình luận <ChevronRight size={16}/></button></div>}
@@ -271,17 +271,24 @@ export default function App() {
     return comment;
   }, []);
   const startSeed = async post => {
-    // Prevent overlapping AI requests for the same post, including React Strict Mode.
+    // Continue from the persisted thread; never overwrite or duplicate an
+    // AI persona that has already commented on this post.
     if (seedRunning.current.has(post.id)) return;
+    const latest = dataRef.current.posts.find(p => p.id === post.id) || post;
+    const existingIds = new Set((latest.comments || []).filter(c=>c.aiId).map(c=>c.aiId));
+    const target = Math.min(5, dataRef.current.settings.numberOfAgents || 3);
+    const remaining = Math.max(0,target-existingIds.size);
+    if (!remaining) return;
     seedRunning.current.add(post.id);
     initialAttempted.current.add(post.id);
     setBusyPosts(old => ({ ...old, [post.id]: true }));
-    setAiJobs(old => ({ ...old, [post.id]: {status:'loading', current:1, total:dataRef.current.settings.numberOfAgents, posted:0, failed:0} }));
+    setAiJobs(old => ({ ...old, [post.id]: {status:'loading', current:1, total:remaining, posted:existingIds.size, failed:0} }));
     try {
       const result = await runInitialComments({
-        post,
+        post:latest,
+        existingComments:latest.comments || [],
         agents: AGENTS,
-        numberOfAgents: dataRef.current.settings.numberOfAgents,
+        numberOfAgents: target,
         generate,
         addComment: addAgentComment,
         postStillExists: () => dataRef.current.posts.some(item => item.id === post.id),
@@ -289,20 +296,21 @@ export default function App() {
           if (progress.phase !== 'finished') {
             setAiJobs(old => ({
               ...old,
-              [post.id]: {...old[post.id], status:'loading', current:progress.current, total:progress.total, posted:progress.posted, failed:progress.failed}
+              [post.id]: {...old[post.id], status:'loading', current:progress.current, total:progress.total, posted:existingIds.size+progress.posted, failed:progress.failed}
             }));
           }
         }
       });
-      const status = result.failed ? (result.posted ? 'partial' : 'error') : 'done';
-      setAiJobs(old => ({ ...old, [post.id]: {status, posted:result.posted, failed:result.failed, error:result.firstError, total:dataRef.current.settings.numberOfAgents} }));
+      const status = result.failed ? ((result.existing+result.posted) ? 'partial' : 'error') : 'done';
+      const completed = result.existing+result.posted;
+      setAiJobs(old => ({ ...old, [post.id]: {status, posted:completed, failed:result.failed, error:result.firstError, total:target, remaining:result.remaining} }));
       if (result.failed) {
-        notify(result.posted
-          ? `Đã có ${result.posted} AI bình luận; ${result.failed} AI gặp lỗi. Xem chi tiết dưới bài viết.`
-          : 'Gemini chưa bình luận được. Xem lỗi ngay dưới bài viết.');
+        notify(completed
+          ? `Đã có ${completed} AI bình luận. Còn ${result.remaining} AI chưa phản hồi; có thể thử lại.`
+          : 'Gemini chưa bình luận được. Xem lỗi dưới bài viết.');
       }
     } catch (error) {
-      setAiJobs(old => ({ ...old, [post.id]: {status:'error', posted:0, failed:1, error:error.message || 'Không rõ nguyên nhân'} }));
+      setAiJobs(old => ({ ...old, [post.id]: {status:existingIds.size?'partial':'error', posted:existingIds.size, remaining, failed:1, error:error.message || 'Không rõ nguyên nhân'} }));
       notify('Gemini bị lỗi. Xem chi tiết dưới bài viết.');
     } finally {
       seedRunning.current.delete(post.id);
@@ -358,11 +366,12 @@ export default function App() {
   useEffect(() => {
     if (startup !== 'ready' || !live || !hydrated.current || recoveryChecked.current) return;
     recoveryChecked.current = true;
-    const newestEmpty = [...dataRef.current.posts].sort(dateDesc).find(post =>
-      post.comments.every(c => !c.aiId) && !initialAttempted.current.has(post.id));
-    if (!newestEmpty) return;
-    initialAttempted.current.add(newestEmpty.id);
-    void startSeed(newestEmpty);
+    const newestIncomplete = [...dataRef.current.posts].sort(dateDesc).find(post =>
+      new Set((post.comments||[]).filter(c => c.aiId).map(c=>c.aiId)).size < dataRef.current.settings.numberOfAgents
+      && !initialAttempted.current.has(post.id));
+    if (!newestIncomplete) return;
+    initialAttempted.current.add(newestIncomplete.id);
+    void startSeed(newestIncomplete);
   }, [startup, live, data.posts]);
   // Periodic drama only works while the tab is open; no hidden cron/push claims.
   useEffect(() => {if (!data.settings.autoDrama || !live || startup !== 'ready') return; const interval = window.setInterval(() => {if (document.visibilityState !== 'visible') return; const posts=dataRef.current.posts;if (!posts.length) return; const idx=Math.floor(Math.random()*Math.min(posts.length,3)); const post=posts[idx]; if (!busyPosts[post.id]) moreDrama(post.id);}, 240000); return ()=>clearInterval(interval);}, [data.settings.autoDrama, busyPosts, live, startup]);

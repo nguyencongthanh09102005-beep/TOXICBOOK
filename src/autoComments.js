@@ -4,7 +4,7 @@
  * Previously generated replies are passed as context to avoid repetitive roasts.
  */
 export async function runInitialComments({
-  post, agents, numberOfAgents = 3, generate, addComment,
+  post, agents, numberOfAgents = 3, existingComments = [], generate, addComment,
   postStillExists = () => true, random = Math.random, onProgress = () => {}
 }) {
   const shuffled = [...agents];
@@ -12,11 +12,19 @@ export async function runInitialComments({
     const j = Math.floor(random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  const count = Math.min(shuffled.length, Math.max(1, Math.min(5, Number(numberOfAgents) || 3)));
-  const history = [];
+  const target = Math.min(shuffled.length, Math.max(1, Math.min(5, Number(numberOfAgents) || 3)));
+  // Continue an interrupted thread instead of generating a duplicate persona.
+  const existingAgents = new Set(existingComments.filter(c=>c.aiId).map(c=>c.aiId));
+  const waiting = shuffled.filter(a=>!existingAgents.has(a.id)).slice(0, Math.max(0,target-existingAgents.size));
+  const count=waiting.length;
+  const history=existingComments.slice(-16).map(c=>({
+    role:c.aiId?'ai':'user',
+    name:c.aiId?(agents.find(a=>a.id===c.aiId)?.name||'AI'):'Chủ thớt',
+    text:String(c.text||'').slice(0,900)
+  }));
   let posted = 0;
   const failures = [];
-  for (const [index, persona] of shuffled.slice(0, count).entries()) {
+  for (const [index, persona] of waiting.entries()) {
     if (!postStillExists()) break;
     onProgress({phase:'generating', current:index+1, total:count, posted, failed:failures.length, persona:persona.name});
     try {
@@ -34,10 +42,10 @@ export async function runInitialComments({
       onProgress({phase:'failed', current:index+1, total:count, posted, failed:failures.length, persona:persona.name, error:failures.at(-1)});
       // Stop when Google is overloaded or quota-limited; running the other
       // personas immediately would only multiply failed requests and costs.
-      if(['GEMINI_OVERLOADED','GEMINI_QUOTA'].includes(error?.code))break;
+      if(['GEMINI_OVERLOADED','GEMINI_QUOTA','GEMINI_TIMEOUT'].includes(error?.code))break;
     }
   }
-  const summary = { posted, failed: failures.length, firstError: failures[0] || null };
+  const summary = { posted, existing: existingAgents.size, remaining: Math.max(0,target-existingAgents.size-posted), target, failed: failures.length, firstError: failures[0] || null };
   onProgress({phase:'finished', current:count, total:count, ...summary});
   return summary;
 }

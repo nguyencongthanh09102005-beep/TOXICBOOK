@@ -76,3 +76,24 @@ test('do not spam other AI personas after provider outage or quota error', async
     assert.equal(result.failed,1);
   }
 });
+
+test('an interrupted post with two AI comments only generates the missing third',async()=>{
+  const prior=[
+    {id:'c1',aiId:'anti',text:'Cái góc chụp này lạ ghê'},
+    {id:'c2',aiId:'khia',text:'Tưởng có ai thèm hóng'},
+  ];
+  const calls=[],posted=[];
+  const result=await runInitialComments({
+    post:{id:'old-post',text:'Tấm ảnh mới',image:'data:image/png;base64,YWJj'},
+    existingComments:prior,agents,numberOfAgents:3,random:()=>0.999,
+    generate:async info=>{calls.push(info);return {source:'gemini',text:'Tui cũng vô soi ảnh nè =))'};},
+    addComment:(postId,comment)=>posted.push({postId,comment}),
+  });
+  assert.equal(result.existing,2);
+  assert.equal(result.posted,1);
+  assert.equal(result.remaining,0);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].agentId,'hong');
+  assert.equal(calls[0].history.length,2);
+  assert.equal(posted[0].comment.agentId,'hong');
+});

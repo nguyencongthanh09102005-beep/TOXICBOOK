@@ -53,6 +53,15 @@ Mở **http://localhost:5173** rồi đăng nhập bằng `TOXICBOOK_OWNER_PASSW
 
 **Lưu ý:** mỗi bình luận AI tiêu thụ một request Gemini, có hạn mức/chi phí tùy tài khoản. Tính năng AI tự quay lại bình luận **mặc định bật** (mỗi 4 phút khi tab đang mở, có thể tắt trong Cài đặt để tiết kiệm quota); không có tác vụ nền khi đóng web. Sau khi đăng bài, AI tự bình luận dù không bật/tắt tính năng quay lại bài cũ.
 
+
+### Khi đăng bài mà chưa thấy AI bình luận
+
+- AI **tự gọi Gemini ngay sau khi đăng bài mới**. Nếu dùng bản cập nhật cho bài cũ chưa có bình luận, ToxicBook sẽ tự thử xử lý lại **bài trống mới nhất một lần khi mở trang**, tránh gọi API vô hạn.
+- Dưới bài đăng có trạng thái `Gemini đang tạo bình luận X/Y` khi chờ. Mỗi AI có thể cần vài giây đến tối đa 70 giây; các AI được xử lý lần lượt. Tránh tải lại trang khi đang xử lý.
+- Nếu lỗi Gemini, thông báo sẽ **ở ngay dưới bài đăng** và có nút **Thử lại** nếu chưa có bình luận nào. Không còn chỉ hiện thông báo thoáng qua rồi biến mất.
+- Lỗi `429` là hạn mức/quá nhiều yêu cầu; `503` là Gemini quá tải; `404` là tên model không hợp lệ/không khả dụng; `70 giây` là timeout. Trong trường hợp API phía Google lỗi, ToxicBook **không tạo bình luận mẫu**.
+- Để xem log chi tiết, mở Terminal đang chạy `npm run dev` rồi thử một bài **chỉ có chữ**. Nếu bài chữ hoạt động nhưng ảnh lỗi, kiểm tra kích thước ảnh và kết nối mạng. **Không chia sẻ API key** khi gửi ảnh lỗi.
+
 ## Triển khai website lên Vercel + Supabase (để dùng trên nhiều thiết bị)
 
 **Không chỉ import GitHub là đủ.** Bản production cần cấu hình 3 dịch vụ:

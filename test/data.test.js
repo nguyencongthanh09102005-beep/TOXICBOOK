@@ -28,8 +28,9 @@ test('owner session status works',async()=>{const res=response();await sessionHa
 test('remote state refuses anonymous when password configured',async()=>{const old=process.env.TOXICBOOK_OWNER_PASSWORD;process.env.TOXICBOOK_OWNER_PASSWORD='my-test-password';try{const res=response();await stateHandler(request(),res);assert.equal(res.statusCode,401);}finally{if(old)process.env.TOXICBOOK_OWNER_PASSWORD=old;else delete process.env.TOXICBOOK_OWNER_PASSWORD;}});
 test('request origin protection',async()=>{const res=response();await sessionHandler(request('POST',{password:'wrong'},{origin:'https://attacker.example'}),res);assert.equal(res.statusCode,403);});
 test('Gemini generates real reply through server, includes image bytes and thread context',async()=>{
-  const oldKey=process.env.GEMINI_API_KEY,oldFetch=globalThis.fetch;
+  const oldKey=process.env.GEMINI_API_KEY,oldModel=process.env.GEMINI_MODEL,oldFetch=globalThis.fetch;
   process.env.GEMINI_API_KEY='test-only-not-real';
+  process.env.GEMINI_MODEL='gemini-3.8-flash';
   let body;
   globalThis.fetch=async(url,options)=>{
     assert.ok(url.includes('generativelanguage.googleapis.com'));
@@ -42,10 +43,12 @@ test('Gemini generates real reply through server, includes image bytes and threa
     await commentHandler(request('POST',{agentId:'anti',postText:'Ảnh này đẹp không',postImage:'data:image/png;base64,aGVsbG8=',history:[{role:'user',name:'Chủ thớt',text:'Mày thấy cái ly không?'}],mode:'reply',roastLevel:'medium'}),res);
     assert.equal(res.statusCode,200);
     assert.equal(res.body.source,'gemini');
+    assert.equal(body.generationConfig.thinkingConfig.thinkingLevel,'low');
+    assert.equal(body.generationConfig.maxOutputTokens,1024);
     assert.equal(body.contents[0].parts[1].inlineData.mimeType,'image/png');
     assert.equal(body.contents[0].parts[1].inlineData.data,'aGVsbG8=');
     assert.ok(body.contents[0].parts[0].text.includes('Mày thấy cái ly không?'));
-  }finally{globalThis.fetch=oldFetch;if(oldKey)process.env.GEMINI_API_KEY=oldKey;else delete process.env.GEMINI_API_KEY;}
+  }finally{globalThis.fetch=oldFetch;if(oldKey)process.env.GEMINI_API_KEY=oldKey;else delete process.env.GEMINI_API_KEY;if(oldModel)process.env.GEMINI_MODEL=oldModel;else delete process.env.GEMINI_MODEL;}
 });
 test('login cookie signs owner session without leaking owner password',async()=>{
   const old=process.env.TOXICBOOK_OWNER_PASSWORD;process.env.TOXICBOOK_OWNER_PASSWORD='a-long-unique-test-password';

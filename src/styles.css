@@ -26,3 +26,14 @@
 .auto-ai-status{display:inline-flex;align-items:center;gap:7px;flex:1;justify-content:center;font-size:11px;font-weight:700;color:#cf2458;background:#fff1f5;border-radius:9px;padding:10px 6px;animation:auto-ai-pulse 1.6s ease-in-out infinite}
 @keyframes auto-ai-pulse{0%,100%{opacity:1}50%{opacity:.64}}
 @media(prefers-reduced-motion:reduce){.auto-ai-status{animation:none}}
+
+/* Keep the real AI request state visible until Gemini succeeds or the user retries. */
+.ai-progress{display:flex;align-items:center;gap:9px;padding:11px 12px;margin:10px 0;border-radius:11px;background:#fff2f6;border:1px solid #fad1dc;color:#a82b55;font-size:12px;line-height:1.5;font-weight:650}
+.ai-progress span{flex:1;min-width:0;overflow-wrap:anywhere}
+.ai-progress svg{flex:none}
+.ai-progress-loading{border-color:#f6d9e0;background:#fff8fa}
+.ai-progress-error{background:#fff3ef;border-color:#eeb1a5;color:#963528}
+.ai-progress-partial{background:#fff8ef;border-color:#f2d1a8;color:#9c5b14}
+.ai-progress button{font:inherit;background:#fff;border:1px solid currentColor;border-radius:8px;color:inherit;padding:7px 11px;white-space:nowrap;cursor:pointer}
+.ai-progress button:hover{background:#ffe7ef}
+@media(max-width:460px){.ai-progress{flex-wrap:wrap}.ai-progress button{margin-left:auto}}

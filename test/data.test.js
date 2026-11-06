@@ -80,3 +80,37 @@ test('Gemini provider overload returns a visible and actionable 503 error, no fa
     if(oldKey)process.env.GEMINI_API_KEY=oldKey;else delete process.env.GEMINI_API_KEY;
   }
 });
+
+test('Gemini retries 503 then uses the real vision-capable Flash-Lite fallback',async()=>{
+  const oldKey=process.env.GEMINI_API_KEY,oldMain=process.env.GEMINI_MODEL,oldFallback=process.env.GEMINI_FALLBACK_MODEL;
+  const oldFetch=globalThis.fetch;
+  process.env.GEMINI_API_KEY='test-only-fallback-key';
+  process.env.GEMINI_MODEL='gemini-3.8-flash';
+  process.env.GEMINI_FALLBACK_MODEL='gemini-3.5-flash-lite';
+  const calls=[];
+  globalThis.fetch=async (url,options)=>{
+    const payload=JSON.parse(options.body);
+    calls.push({url,payload});
+    if(calls.length<=2)return {ok:false,status:503,text:async()=>JSON.stringify({error:'Service unavailable'})};
+    return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:'Cái góc chụp ly nước này đúng là hết cứu =))'}]}}]})};
+  };
+  try{
+    const res=response();
+    await commentHandler(request('POST',{agentId:'anti',postText:'Tấm hình mới',postImage:'data:image/png;base64,aGVsbG8=',history:[],mode:'seed',roastLevel:'medium'}),res);
+    assert.equal(res.statusCode,200);
+    assert.equal(res.body.source,'gemini');
+    assert.equal(res.body.model,'gemini-3.5-flash-lite');
+    assert.equal(calls.length,3);
+    assert.ok(calls[0].url.includes('gemini-3.8-flash'));
+    assert.ok(calls[1].url.includes('gemini-3.8-flash'));
+    assert.ok(calls[2].url.includes('gemini-3.5-flash-lite'));
+    assert.equal(calls[2].payload.contents[0].parts[1].inlineData.mimeType,'image/png');
+    assert.equal(calls[2].payload.contents[0].parts[1].inlineData.data,'aGVsbG8=');
+    assert.equal(calls[2].payload.generationConfig.thinkingConfig.thinkingLevel,'minimal');
+  }finally{
+    globalThis.fetch=oldFetch;
+    for(const [key,value] of [['GEMINI_API_KEY',oldKey],['GEMINI_MODEL',oldMain],['GEMINI_FALLBACK_MODEL',oldFallback]]){
+      if(value===undefined)delete process.env[key];else process.env[key]=value;
+    }
+  }
+});

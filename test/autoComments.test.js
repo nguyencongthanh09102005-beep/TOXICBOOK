@@ -62,3 +62,17 @@ test('auto commenting stops without posting when the owner deletes the post', as
   assert.equal(result.posted,0);
   assert.equal(comments,0);
 });
+
+test('do not spam other AI personas after provider outage or quota error', async()=>{
+  for(const code of ['GEMINI_OVERLOADED','GEMINI_QUOTA']){
+    let calls=0;
+    const result=await runInitialComments({
+      post:{id:'post-outage',image:''},agents,numberOfAgents:3,
+      generate:async()=>{calls++;const error=new Error('Google service unavailable');error.code=code;throw error;},
+      addComment:()=>assert.fail('No fake comment should be created'),
+    });
+    assert.equal(calls,1);
+    assert.equal(result.posted,0);
+    assert.equal(result.failed,1);
+  }
+});

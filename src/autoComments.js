@@ -32,6 +32,9 @@ export async function runInitialComments({
     } catch (error) {
       failures.push(error?.message || 'Lỗi Gemini không xác định.');
       onProgress({phase:'failed', current:index+1, total:count, posted, failed:failures.length, persona:persona.name, error:failures.at(-1)});
+      // Stop when Google is overloaded or quota-limited; running the other
+      // personas immediately would only multiply failed requests and costs.
+      if(['GEMINI_OVERLOADED','GEMINI_QUOTA'].includes(error?.code))break;
     }
   }
   const summary = { posted, failed: failures.length, firstError: failures[0] || null };

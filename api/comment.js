@@ -44,9 +44,13 @@ export default async function handler(req,res){
     ].join('\n');
     const parts=[{text:JSON.stringify({task:mode==='seed'?'Bình luận đầu tiên xoáy vào bài đăng':'Viết phản hồi tiếp theo bám chuỗi hội thoại',postCaption:postText,conversation:cleaned})}];
     if(photo)parts.push(photo);
-    const payload={systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts}],generationConfig:{maxOutputTokens:500}};
     const model=(process.env.GEMINI_MODEL||'gemini-3.8-flash').replace(/^models\//,'');
-    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),25_000);
+    // Gemini 3.8 uses medium thinking by default; low reduces latency for short chat replies.
+    // Higher output limit leaves room for reasoning tokens before the visible comment.
+    const generationConfig={maxOutputTokens:1024};
+    if(/^gemini-3(?:\.|-)/.test(model))generationConfig.thinkingConfig={thinkingLevel:'low'};
+    const payload={systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts}],generationConfig};
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),70_000);
     let response;
     try{response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(payload),signal:controller.signal});}finally{clearTimeout(timer);}
     if(!response.ok){const detail=await response.text();console.error('Gemini error',response.status,detail.slice(0,300));const message=response.status===429?'Gemini đã hết hạn mức hoặc đang quá tải.':response.status===404?'Không tìm thấy Gemini model. Kiểm tra GEMINI_MODEL.':response.status===400||response.status===403?'Gemini từ chối API key hoặc cấu hình. Kiểm tra Google AI Studio.':'Gemini tạm thời lỗi. Thử lại sau.';return sendJSON(res,502,{error:message,code:'GEMINI_ERROR'});}
@@ -54,5 +58,5 @@ export default async function handler(req,res){
     result=result.replace(/^["“]|["”]$/g,'').slice(0,380);
     if(!result)return sendJSON(res,502,{error:'Gemini không tạo được bình luận, hãy thử lại.',code:'EMPTY_RESPONSE'});
     return sendJSON(res,200,{text:result,source:'gemini',model});
-  }catch(err){console.error('ToxicBook API:',err.message);return sendJSON(res,err.status||500,{error:err.name==='AbortError'?'AI phản hồi quá lâu. Thử lại.':err.status===413?err.message:'Không tạo được bình luận AI.',code:'REQUEST_FAILED'});}
+  }catch(err){console.error('ToxicBook API:',err.message);return sendJSON(res,err.status||500,{error:err.name==='AbortError'?'Gemini phản hồi quá 70 giây. Kiểm tra kết nối mạng hoặc thử lại với bài đăng không có ảnh.':err.status===413?err.message:'Không tạo được bình luận AI.',code:'REQUEST_FAILED'});}
 }

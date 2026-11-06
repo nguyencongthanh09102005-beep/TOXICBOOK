@@ -58,7 +58,7 @@ Mở **http://localhost:5173** rồi đăng nhập bằng `TOXICBOOK_OWNER_PASSW
 ### Khi đăng bài mà chưa thấy AI bình luận
 
 - AI **tự gọi Gemini ngay sau khi đăng bài mới**. Nếu dùng bản cập nhật cho bài cũ chưa có bình luận, ToxicBook sẽ tự thử xử lý lại **bài trống mới nhất một lần khi mở trang**, tránh gọi API vô hạn.
-- Dưới bài đăng có trạng thái `Gemini đang tạo bình luận X/Y` khi chờ. Mỗi AI có thể cần vài giây đến tối đa 70 giây; các AI được xử lý lần lượt. Tránh tải lại trang khi đang xử lý.
+- Dưới bài đăng có trạng thái `Gemini đang tạo bình luận X/Y` khi chờ. Mỗi AI được xử lý lần lượt. Một yêu cầu sẽ chuyển model khi quá tải hoặc quá chậm, có giới hạn thời gian riêng cho từng lần thử. Tránh tải lại trang khi đang xử lý.
 - Nếu lỗi Gemini, thông báo sẽ **ở ngay dưới bài đăng** và có nút **Thử lại** nếu chưa có bình luận nào. Không còn chỉ hiện thông báo thoáng qua rồi biến mất.
 - Lỗi `429` là hạn mức/quá nhiều yêu cầu; `503` là Gemini quá tải; `404` là tên model không hợp lệ/không khả dụng; `70 giây` là timeout. Trong trường hợp API phía Google lỗi, ToxicBook **không tạo bình luận mẫu**.
 - Để xem log chi tiết, mở Terminal đang chạy `npm run dev` rồi thử một bài **chỉ có chữ**. Nếu bài chữ hoạt động nhưng ảnh lỗi, kiểm tra kích thước ảnh và kết nối mạng. **Không chia sẻ API key** khi gửi ảnh lỗi.
@@ -106,3 +106,9 @@ Không có push notification nền: thông báo được tạo trong web khi Gem
 ### Khi Gemini báo 503 quá tải
 
 Gemini 503 là lỗi dịch vụ phía Google, không phải do giao diện ToxicBook. Server tự thử lại **một lần** sau một khoảng ngắn, sau đó gọi model dự phòng `gemini-3.5-flash-lite` (vẫn hiểu ảnh) nếu model chính tiếp tục báo quá tải. Đây đều là các yêu cầu tạo nội dung từ Gemini thật, không phải comment mẫu. Nếu cả hai model đều không đáp ứng, ToxicBook báo lỗi và giữ nút **Thử lại**. `429` là giới hạn/quota, **không** tự retry để tránh gọi vượt hạn mức. Mỗi lần thử có thể làm tăng số request/chi phí; nếu muốn tắt model dự phòng, dùng `GEMINI_FALLBACK_MODEL=off`. Thay đổi `.env.local` thì cần khởi động lại Vite.
+
+### Gemini 503 rồi ngắt sau 70 giây (bản sửa mới)
+
+Bản cũ dùng chung một `AbortController` cho toàn bộ chuỗi retry, nên model chính có thể làm hết thời gian khiến model dự phòng không kịp gọi. Bản mới dành thời gian chờ riêng cho lần thử model chính (23 giây), model Flash-Lite dự phòng (27 giây) và một lượt thử lại Flash-Lite (16 giây). Sau 503 của model chính sẽ chuyển ngay sang model dự phòng. Mỗi lượt có thể phát sinh yêu cầu Gemini tính quota/chi phí; không bảo đảm Google hết quá tải.
+
+Nếu đăng bài đã có 2/3 bình luận rồi bị lỗi, nhấn **Tạo tiếp bình luận** (hoặc mở lại web sau khi cập nhật) để tạo **nhân vật thứ ba**, không xóa/viết lại 2 bình luận cũ. Khi gặp timeout kéo dài hoặc quá tải dù đã thử dự phòng, ToxicBook không tự spam thêm hàng loạt nhân vật; sẽ hiện lỗi để thử lại sau.

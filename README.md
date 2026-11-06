@@ -33,6 +33,7 @@ Lấy Gemini API key ở [Google AI Studio](https://aistudio.google.com/apikey).
 ```dotenv
 GEMINI_API_KEY=day_la_key_thuc_cua_ban
 GEMINI_MODEL=gemini-3.8-flash
+GEMINI_FALLBACK_MODEL=gemini-3.5-flash-lite
 TOXICBOOK_OWNER_PASSWORD=mat_khau_manh_cua_rieng_ban
 ```
 
@@ -71,6 +72,7 @@ Mở **http://localhost:5173** rồi đăng nhập bằng `TOXICBOOK_OWNER_PASSW
 
    - `GEMINI_API_KEY` — Gemini API key từ Google AI Studio.
    - `GEMINI_MODEL` — ví dụ `gemini-3.8-flash` (model cần có trên tài khoản).
+   - `GEMINI_FALLBACK_MODEL` — tùy chọn, mặc định `gemini-3.5-flash-lite`; dự phòng cho 503, nhập `off` để tắt.
    - `TOXICBOOK_OWNER_PASSWORD` — mật khẩu mạnh riêng cho chủ web; bắt buộc khi deploy.
    - `TOXICBOOK_SESSION_SECRET` — chuỗi bí mật ngẫu nhiên dài, dùng ký cookie đăng nhập.
    - `SUPABASE_URL` — Project URL.
@@ -100,3 +102,7 @@ Các test Node kiểm tra persona, trạng thái rỗng ban đầu, không tạo
 ## Thông tin triển khai
 
 Không có push notification nền: thông báo được tạo trong web khi Gemini bình luận; tự gọi lại bài cũ chỉ xảy ra khi tab đang mở và bật Auto drama. Dữ liệu local cũ nằm trong `localStorage` của bản mô phỏng không tự đưa vào server nhằm không nhập nhầm comment mẫu vào bản thật. Hãy xuất bản sao lưu trước khi nâng cấp nếu cần giữ dữ liệu cũ.
+
+### Khi Gemini báo 503 quá tải
+
+Gemini 503 là lỗi dịch vụ phía Google, không phải do giao diện ToxicBook. Server tự thử lại **một lần** sau một khoảng ngắn, sau đó gọi model dự phòng `gemini-3.5-flash-lite` (vẫn hiểu ảnh) nếu model chính tiếp tục báo quá tải. Đây đều là các yêu cầu tạo nội dung từ Gemini thật, không phải comment mẫu. Nếu cả hai model đều không đáp ứng, ToxicBook báo lỗi và giữ nút **Thử lại**. `429` là giới hạn/quota, **không** tự retry để tránh gọi vượt hạn mức. Mỗi lần thử có thể làm tăng số request/chi phí; nếu muốn tắt model dự phòng, dùng `GEMINI_FALLBACK_MODEL=off`. Thay đổi `.env.local` thì cần khởi động lại Vite.

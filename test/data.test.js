@@ -63,3 +63,20 @@ test('login cookie signs owner session without leaking owner password',async()=>
     assert.equal(again.body.authorized,true);
   }finally{if(old)process.env.TOXICBOOK_OWNER_PASSWORD=old;else delete process.env.TOXICBOOK_OWNER_PASSWORD;}
 });
+
+test('Gemini provider overload returns a visible and actionable 503 error, no fake comment',async()=>{
+  const oldKey=process.env.GEMINI_API_KEY, oldFetch=globalThis.fetch;
+  process.env.GEMINI_API_KEY='test-key-provider-503';
+  globalThis.fetch=async()=>({ok:false,status:503,text:async()=>'{ "error":"Service unavailable" }'});
+  try {
+    const res=response();
+    await commentHandler(request('POST',{agentId:'anti',postText:'Bài đăng cần bình luận',history:[],mode:'seed',roastLevel:'medium'}),res);
+    assert.equal(res.statusCode,503);
+    assert.equal(res.body.code,'GEMINI_OVERLOADED');
+    assert.ok(res.body.error.includes('503'));
+    assert.equal(res.body.text,undefined);
+  } finally {
+    globalThis.fetch=oldFetch;
+    if(oldKey)process.env.GEMINI_API_KEY=oldKey;else delete process.env.GEMINI_API_KEY;
+  }
+});

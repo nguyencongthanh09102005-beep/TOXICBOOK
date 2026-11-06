@@ -5,7 +5,7 @@
  */
 export async function runInitialComments({
   post, agents, numberOfAgents = 3, generate, addComment,
-  postStillExists = () => true, random = Math.random
+  postStillExists = () => true, random = Math.random, onProgress = () => {}
 }) {
   const shuffled = [...agents];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -16,8 +16,9 @@ export async function runInitialComments({
   const history = [];
   let posted = 0;
   const failures = [];
-  for (const persona of shuffled.slice(0, count)) {
+  for (const [index, persona] of shuffled.slice(0, count).entries()) {
     if (!postStillExists()) break;
+    onProgress({phase:'generating', current:index+1, total:count, posted, failed:failures.length, persona:persona.name});
     try {
       const result = await generate({ agentId: persona.id, post, history: [...history], mode: 'seed' });
       if (!postStillExists()) break;
@@ -27,9 +28,13 @@ export async function runInitialComments({
       addComment(post.id, { agentId: persona.id, text: result.text, source: 'gemini' });
       history.push({ role: 'ai', name: persona.name, text: result.text });
       posted++;
+      onProgress({phase:'comment', current:index+1, total:count, posted, failed:failures.length, persona:persona.name});
     } catch (error) {
       failures.push(error?.message || 'Lỗi Gemini không xác định.');
+      onProgress({phase:'failed', current:index+1, total:count, posted, failed:failures.length, persona:persona.name, error:failures.at(-1)});
     }
   }
-  return { posted, failed: failures.length, firstError: failures[0] || null };
+  const summary = { posted, failed: failures.length, firstError: failures[0] || null };
+  onProgress({phase:'finished', current:count, total:count, ...summary});
+  return summary;
 }

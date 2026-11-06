@@ -11,6 +11,7 @@ const agents = [
 test('automatic comments are generated on publish for image posts with no button', async () => {
   const requests = [];
   const comments = [];
+  const progress = [];
   const result = await runInitialComments({
     post:{id:'photo-1',text:'',image:'data:image/jpeg;base64,YWJj'},
     agents,
@@ -21,9 +22,13 @@ test('automatic comments are generated on publish for image posts with no button
       return {source:'gemini',text:'Góc chụp cái cốc này kỳ ghê 😭'};
     },
     addComment:(postId,comment)=>comments.push({postId,...comment}),
+    onProgress:state=>progress.push(state),
   });
   assert.equal(result.posted,3);
   assert.equal(result.failed,0);
+  assert.equal(progress.filter(x=>x.phase==='generating').length,3);
+  assert.equal(progress.filter(x=>x.phase==='comment').length,3);
+  assert.equal(progress.at(-1).phase,'finished');
   assert.equal(requests.length,3);
   assert.ok(requests.every(x=>x.post.image.startsWith('data:image/jpeg;') && x.mode==='seed'));
   assert.equal(requests[1].history.length,1);
@@ -37,6 +42,7 @@ test('one AI failure does not block the remaining commenters', async () => {
     post:{id:'post-1',text:'Ảnh hôm nay',image:''},agents,numberOfAgents:3,random:()=>0.999,
     generate:async()=>{calls++;if(calls===1)throw new Error('Timeout');return {source:'gemini',text:'Đăng ảnh lên để người ta soi hả =)))'};},
     addComment:(id,c)=>comments.push(c),
+    onProgress:state=>{if(state.phase==='failed')assert.equal(state.error,'Timeout');},
   });
   assert.equal(calls,3);
   assert.equal(outcome.posted,2);

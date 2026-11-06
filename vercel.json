@@ -5,6 +5,9 @@
   "functions": {
     "api/comment.js": {
       "maxDuration": 90
+    },
+    "api/batch-comments.js": {
+      "maxDuration": 90
     }
   }
 }

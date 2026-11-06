@@ -5,8 +5,8 @@
 ## Tính năng hoạt động
 
 - React + Vite: bảng tin, đăng bài/ảnh, sửa/xóa, hồ sơ, tìm kiếm, thông báo, bình luận dạng cây, giao diện mobile.
-- **Gemini tạo từng câu thật:** bình luận đầu tiên, cãi tay đôi khi bạn trả lời, thỉnh thoảng AI thứ hai chen vào, nút "Kích drama".
-- **Gemini xem ảnh:** ảnh được nén trên trình duyệt và truyền đến Gemini qua proxy bảo vệ khóa API, không dựa vào caption để đoán nội dung ảnh.
+- **AI tự vào bình luận sau khi đăng:** tự chọn 1–5 nhân vật (mặc định 3), từng AI gọi Gemini thật để nhận xét ảnh/caption, không có nút "Kích drama". Khi một AI lỗi, các AI còn lại vẫn được thử; khi bạn trả lời, AI tiếp tục cãi đúng chuỗi.
+- **Gemini tự xem và chê ảnh:** ảnh được nén vừa giới hạn request rồi gửi cho Gemini qua server; mỗi bình luận đầu tiên được hướng dẫn dựa trên một chi tiết thật trong ảnh (góc chụp, bố cục, trang phục, ánh sáng...), không được bịa chi tiết hoặc chỉ nhận xét caption.
 - **Nhớ ngữ cảnh:** chuỗi cãi nhau được gửi cho Gemini trong mỗi lượt, không tạo các câu chửi ngẫu nhiên có sẵn.
 - **Không fallback:** không có AI key, AI lỗi, hết quota hoặc mạng mất thì hiển thị lỗi rõ; **không tạo câu giả**.
 - **Owner password:** chỉ người đăng nhập bằng mật khẩu chủ web mới truy cập và gọi AI. Trên Vercel luôn bắt buộc cấu hình mật khẩu.
@@ -51,7 +51,7 @@ Mở **http://localhost:5173** rồi đăng nhập bằng `TOXICBOOK_OWNER_PASSW
 3. Nhấn **Trả lời** vào Anti Số 01 và nhắn "Mày nói ai xấu?"; AI sẽ được hỏi Gemini lại với ngữ cảnh của chính chuỗi bình luận đó.
 4. Nếu lỗi, màn hình sẽ báo rõ lỗi; không sinh văn bản dựng sẵn.
 
-**Lưu ý:** mỗi bình luận AI tiêu thụ một request Gemini, có hạn mức/chi phí tùy tài khoản. Tính năng AI quay lại kiếm chuyện mặc định tắt để tránh dùng quota ngoài ý muốn. Nếu bật, nó chỉ chạy khi tab đang mở.
+**Lưu ý:** mỗi bình luận AI tiêu thụ một request Gemini, có hạn mức/chi phí tùy tài khoản. Tính năng AI tự quay lại bình luận **mặc định bật** (mỗi 4 phút khi tab đang mở, có thể tắt trong Cài đặt để tiết kiệm quota); không có tác vụ nền khi đóng web. Sau khi đăng bài, AI tự bình luận dù không bật/tắt tính năng quay lại bài cũ.
 
 ## Triển khai website lên Vercel + Supabase (để dùng trên nhiều thiết bị)
 

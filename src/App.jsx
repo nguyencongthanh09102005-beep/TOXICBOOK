@@ -258,7 +258,11 @@ export default function App() {
       response = await fetch('/api/comment', { method: 'POST', credentials:'same-origin', headers: {'Content-Type':'application/json'}, body: JSON.stringify({agentId, postText: post.text, postImage: post.image?.startsWith('data:image/') ? post.image : null, history: history.slice(-30), mode, roastLevel: dataRef.current.settings.roastLevel}) });
     } catch { throw new Error('Không kết nối được máy chủ. Kiểm tra kết nối mạng.'); }
     const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.text || result.source !== 'gemini') throw new Error(result.error || 'AI không tạo được bình luận.');
+    if (!response.ok || !result.text || result.source !== 'gemini') {
+      const error=new Error(result.error || 'AI không tạo được bình luận.');
+      error.code=result.code || 'GEMINI_ERROR';
+      throw error;
+    }
     return result;
   }, [live]);
   const addAgentComment = useCallback((postId, { agentId, text, parentId = null, source = 'gemini', notifyUser = true }) => {

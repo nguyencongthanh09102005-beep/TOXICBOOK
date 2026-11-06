@@ -1,5 +1,6 @@
 /** Real Gemini inference only. Never serves templates, demo responses or the API key. */
 import { hasOwnerSession, sendJSON, readJSON, sameOrigin } from './_auth.js';
+import { requestGemini } from './_geminiRetry.js';
 const PERSONAS = {
   anti: 'Anti Số 01: bình luận thẳng, chê ảnh hoặc nội dung cụ thể, giọng điệu gắt và không chịu lép vế.',
   hong: 'Drama Hóng Hớt: thích chen ngang, mồm nhanh, thường nói 🍿😭 và thích đổ dầu vào drama.',
@@ -48,43 +49,32 @@ export default async function handler(req,res){
     if(photo)parts.push(photo);
     const primaryModel=(process.env.GEMINI_MODEL||'gemini-3.8-flash').replace(/^models\//,'');
     const fallbackModel=(process.env.GEMINI_FALLBACK_MODEL||'gemini-3.5-flash-lite').replace(/^models\//,'');
-    const fallbackEnabled = !['off','none','disabled'].includes(fallbackModel.toLowerCase()) && fallbackModel!==primaryModel;
-    // A limited retry with backoff, followed by a different real, vision-capable
-    // Gemini model if the primary service remains overloaded. No canned comments.
-    const candidates=[primaryModel,primaryModel,...(fallbackEnabled?[fallbackModel]:[])];
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),70_000);
-    let response, model=primaryModel;
-    try {
-      for(let attempt=0;attempt<candidates.length;attempt++){
-        model=candidates[attempt];
+    const attempt=await requestGemini({
+      primaryModel, fallbackModel, apiKey:key,
+      makePayload:model=>{
         const generationConfig={maxOutputTokens:1024};
         if(/^gemini-3(?:\.|-)/.test(model)){
           generationConfig.thinkingConfig={thinkingLevel:model==='gemini-3.5-flash-lite'?'minimal':'low'};
         }
-        const payload={systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts}],generationConfig};
-        response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
-          method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},
-          body:JSON.stringify(payload),signal:controller.signal
-        });
-        if(response.ok)break;
-        const detail=await response.text();
-        console.error('Gemini error',response.status,'model:',model,detail.slice(0,300));
-        // Only retry on transient overload and temporary upstream failures.
-        // A 404 can move directly to the alternate model (but not loop forever).
-        const transient=[500,502,503,504].includes(response.status);
-        const switchModel=response.status===404 && fallbackEnabled && model!==fallbackModel;
-        const hasNext=attempt+1<candidates.length;
-        if((transient||switchModel)&&hasNext){
-          if(switchModel){attempt=candidates.length-2;}
-          if(transient)await new Promise(resolve=>setTimeout(resolve,attempt===0?1000:2500));
-          continue;
-        }
-        break;
+        return {systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts}],generationConfig};
       }
-    }finally{clearTimeout(timer);}
-    if(!response.ok){const code=response.status===429?'GEMINI_QUOTA':response.status===503?'GEMINI_OVERLOADED':response.status===404?'GEMINI_MODEL_NOT_FOUND':response.status===401||response.status===403?'GEMINI_AUTH':response.status===400?'GEMINI_BAD_REQUEST':'GEMINI_ERROR';const message=response.status===429?'Gemini đã hết hạn mức hoặc quá nhiều yêu cầu. Kiểm tra quota trong Google AI Studio.':response.status===503?(fallbackEnabled?'Gemini 3.8 và model dự phòng đều đang quá tải (503). Thử lại sau.':'Gemini đang quá tải (503) sau khi thử lại. Thử sau ít phút.'):response.status===404?'Gemini không tìm thấy model này. Kiểm tra GEMINI_MODEL và GEMINI_FALLBACK_MODEL.':response.status===401||response.status===403?'Gemini từ chối quyền truy cập. Kiểm tra API key và dự án trên Google AI Studio.':response.status===400?'Gemini từ chối dữ liệu hoặc cấu hình gửi lên (400). Xem Terminal để biết nguyên nhân.':`Gemini trả lỗi HTTP ${response.status}. Xem Terminal để biết chi tiết.`;return sendJSON(res,response.status===429?429:response.status===503?503:502,{error:message,code});}
-    const json=await response.json();let result=json.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim()||'';
+    });
+    if(!attempt.ok){
+      const status=attempt.failure?.status||502;
+      const used=attempt.attempts.map(x=>x.model).join(' → ');
+      const code=status===429?'GEMINI_QUOTA':status===503?'GEMINI_OVERLOADED':status===404?'GEMINI_MODEL_NOT_FOUND':status===401||status===403?'GEMINI_AUTH':status===400?'GEMINI_BAD_REQUEST':status===504?'GEMINI_TIMEOUT':'GEMINI_ERROR';
+      const message=status===429?'Gemini vượt hạn mức hoặc giới hạn yêu cầu. Kiểm tra quota ở Google AI Studio.':
+        status===503?'Gemini vẫn quá tải (503) sau khi chuyển model dự phòng.':
+        status===504?'Gemini trả lời chậm, đã ngắt từng model để không treo toàn bộ lượt bình luận.':
+        status===404?'Model không tồn tại hoặc chưa được cấp cho API key này. Kiểm tra GEMINI_MODEL / GEMINI_FALLBACK_MODEL.':
+        status===400?'Gemini từ chối yêu cầu (400). Xem lỗi trên Terminal.':
+        status===401||status===403?'Gemini từ chối quyền truy cập. Kiểm tra API key.':
+        `Gemini báo HTTP ${status}.`;
+      return sendJSON(res,status===429?429:status===503?503:502,{error:`${message} Đã thử: ${used}.`,code});
+    }
+    const model=attempt.model;
+    const json=attempt.json;
+    let result=json.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim()||'';
     result=result.replace(/^["“]|["”]$/g,'').slice(0,380);
     if(!result)return sendJSON(res,502,{error:'Gemini không tạo được bình luận, hãy thử lại.',code:'EMPTY_RESPONSE'});
     return sendJSON(res,200,{text:result,source:'gemini',model});
